@@ -20,3 +20,4 @@ type CommandProcessor<'TCmd, 'TEvent, 'TExternalState>(readModel:IReadModel<'TEv
     }
     
   member this.Process (cmd:'TCmd) = processCmd cmd |> Async.RunSynchronously
+  member this.ProcessAsync (cmd:'TCmd) = processCmd cmd
