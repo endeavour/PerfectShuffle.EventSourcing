@@ -12,6 +12,15 @@ module MyApp =
   // Exposed to outside world, optimised for read access.
   type State = {Users : Map<string,User>}
   
+  let deserialize (readmodel:IReadModel<_,_>) =
+    if System.IO.File.Exists("events.data") then
+      use input = System.IO.File.OpenRead("events.data")
+      let events = EventStore.ReadEvents<DomainEvent> input
+
+      events |> Seq.iteri (fun i evt ->
+        printfn "[%d] Applying event: %A" i evt
+        readmodel.Apply(events))
+
   let init() =
      
     /// Converts internal state to the readmodel
@@ -28,18 +37,9 @@ module MyApp =
         {Users = newUsers}
   
     let initialState:InternalState = {Users = Set.empty}
-    let readModel:IReadModel<_,_> = upcast ReadModel<DomainEvent,InternalState,State>(initialState, evtAccumulator, expose)
+    let readModel:IReadModel<_,_> = upcast ReadModel<DomainEvent,InternalState,State>(initialState, evtAccumulator, expose)     
       
-    let deserialize readmodel =
-      if System.IO.File.Exists("events.data") then
-        use input = System.IO.File.OpenRead("events.data")
-        let events = EventStore.ReadEvents<DomainEvent> input
-
-        events |> Seq.iteri (fun i evt ->
-          printfn "[%d] Applying event: %A" i evt
-          readModel.Apply(events))
-      
-    deserialize()
+    deserialize readModel
 
     let run cmd : Async<CmdOutput<_>> =
       match cmd with
