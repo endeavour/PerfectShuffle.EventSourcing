@@ -1,7 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing", "PerfectShuffle.EventSourcing.fsproj", "{101CF299-21FD-4535-8E15-92EFBBDDC9EF}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing", "PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj", "{101CF299-21FD-4535-8E15-92EFBBDDC9EF}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SampleApp", "SampleApp\SampleApp.fsproj", "{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,6 +15,10 @@ Global
 		{101CF299-21FD-4535-8E15-92EFBBDDC9EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{101CF299-21FD-4535-8E15-92EFBBDDC9EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{101CF299-21FD-4535-8E15-92EFBBDDC9EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
