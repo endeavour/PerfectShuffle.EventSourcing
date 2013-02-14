@@ -3,7 +3,7 @@ open FsCoreSerializer
 
   module EventStore =
    
-    let private serializer = new BinaryFormatterSerializer() :> ISerializer
+    let private serializer = new FsCoreSerializer() :> ISerializer
     
     let Deserialize<'TEvent>(inputStream:System.IO.Stream) =
       serializer.Deserialize(inputStream) :?> 'TEvent
