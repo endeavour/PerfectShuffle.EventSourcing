@@ -23,7 +23,7 @@
             let! msg = inbox.Receive()
             
             match msg with
-            | Update(evts) ->              
+            | Update(evts) ->  
               return! loop evts internalState  
             | CurrentState replyChannel ->
                 let currentState = expose internalState
