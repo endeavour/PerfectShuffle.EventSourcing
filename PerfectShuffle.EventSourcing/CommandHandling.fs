@@ -1,17 +1,19 @@
 ﻿namespace PerfectShuffle.EventSourcing
 
-type CmdOutput<'TEvent> =
-| Success of seq<'TEvent>
+type Id = int64
+type EventWithMetadata<'event> = {Id : Id; Timestamp : System.DateTime; Event : 'event}
+
+type CmdOutput<'event> =
+| Success of seq<EventWithMetadata<'event>>
 | Failure of exn
 
-
-type CommandHandler<'TCmd,'TEvent> = 'TCmd -> Async<CmdOutput<'TEvent>>
+type CommandHandler<'cmd,'event> = 'cmd -> Async<CmdOutput<'event>>
 
 // For C# and autofac friendliness
-type ICommandHandler<'TCmd,'TEvent> =
-  abstract Handle : cmd:'TCmd -> Async<CmdOutput<'TEvent>>
+type ICommandHandler<'cmd,'event> =
+  abstract Handle : cmd:'cmd -> Async<CmdOutput<'event>>
 
-type EventSerializer<'TEvent> = seq<'TEvent> -> Async<unit>
+type EventSerializer<'event> = seq<EventWithMetadata<'event>> -> Async<unit>
 
 type ICommandProcessor<'TCmd> =
   abstract Process : cmd:'TCmd -> unit
@@ -26,7 +28,7 @@ type CommandProcessor<'TCmd, 'TEvent, 'TExternalState>(readModel:IReadModel<'TEv
       match output with
       | Success evts ->
         do! serialize evts
-        readModel.Apply evts
+        readModel.Apply (evts |> Seq.map (fun x -> x.Event))
       | Failure ex -> raise ex
     }
     
