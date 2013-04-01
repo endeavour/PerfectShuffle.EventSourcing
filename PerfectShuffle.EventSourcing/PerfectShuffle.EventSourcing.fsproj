@@ -36,17 +36,26 @@
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <ItemGroup>
+    <Compile Include="Serialization.fs" />
     <Compile Include="ReadModel.fs" />
     <Compile Include="CommandHandling.fs" />
+    <Compile Include="StringExtensions.fs" />
+    <Compile Include="ConcatenatedStreams.fs" />
     <Compile Include="EventStore.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FsCoreSerializer">
-      <HintPath>..\libs\FsCoreSerializer.dll</HintPath>
+    <Reference Include="EventStore.ClientAPI">
+      <HintPath>Libs\eventstore-net-1.0.1\eventstore\EventStore.ClientAPI.dll</HintPath>
+    </Reference>
+    <Reference Include="EventStore.Core">
+      <HintPath>Libs\eventstore-net-1.0.1\eventstore\EventStore.Core.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>Libs\newtonsoft-json\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
