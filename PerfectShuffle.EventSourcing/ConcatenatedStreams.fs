@@ -33,6 +33,7 @@ type ConcatenatedStream(streams:seq<Stream>) =
         let bytesRead = enumerator.Current.Read(buffer, offset, count)
         if bytesRead < count
           then
+            enumerator.Current.Close()
             enumerator.Current.Dispose()
             if (enumerator.MoveNext())
                 then
@@ -42,4 +43,18 @@ type ConcatenatedStream(streams:seq<Stream>) =
                   bytesRead
           else bytesRead       
       else 0
-    
+  
+  override __.Close() =
+    if atEnd = false && enumerator.Current <> null then
+      enumerator.Current.Close()
+
+  override __.Dispose(disposing) =
+      if atEnd = false && enumerator.Current <> null then
+        enumerator.Current.Close()
+        enumerator.Current.Dispose()
+
+  interface IDisposable with
+    override __.Dispose() =
+      if atEnd = false && enumerator.Current <> null then
+        enumerator.Current.Dispose()
+        
