@@ -15,23 +15,27 @@ type ICommandHandler<'cmd,'event> =
 
 type EventSerializer<'event> = seq<EventWithMetadata<'event>> -> Async<unit>
 
-type ICommandProcessor<'TCmd> =
-  abstract Process : cmd:'TCmd -> unit
-  abstract ProcessAsync : cmd:'TCmd -> Async<unit>
+// TODO: Can remove this?
 
-type CommandProcessor<'TCmd, 'TEvent, 'TExternalState>(readModel:IReadModel<'TEvent,'TExternalState>, cmdHandler:CommandHandler<'TCmd,'TEvent>, serialize:EventSerializer<'TEvent>) =
-  
-  let processCmd cmd =
-    async {
-      let! output = cmdHandler cmd
-    
-      match output with
-      | Success evts ->
-        do! serialize evts
-        readModel.Apply (evts |> Seq.map (fun x -> x.Event))
-      | Failure ex -> raise ex
-    }
-    
-  interface ICommandProcessor<'TCmd> with
-    member this.Process (cmd:'TCmd) = processCmd cmd |> Async.RunSynchronously
-    member this.ProcessAsync (cmd:'TCmd) = processCmd cmd
+//type ICommandProcessor<'TCmd, 'TEvent> =
+//  abstract Process : cmd:'TCmd -> CmdOutput<'TEvent>
+//  abstract ProcessAsync : cmd:'TCmd -> Async<CmdOutput<'TEvent>>
+
+//type CommandProcessor<'TCmd, 'TEvent, 'TExternalState>(readModel:IReadModel<'TEvent,'TExternalState>,  serialize:EventSerializer<'TEvent>) =
+//  
+//  let processCmd cmd =
+//    async {
+//      let! output = cmdHandler cmd
+//    
+//      match output with
+//      | Success evts ->
+//        do! serialize evts
+//        readModel.Apply (evts |> Seq.map (fun x -> x.Event))
+//      | Failure ex -> ()
+//
+//      return output
+//    }
+//    
+//  interface ICommandProcessor<'TCmd, 'TEvent> with
+//    member this.Process (cmd:'TCmd) = processCmd cmd |> Async.RunSynchronously
+//    member this.ProcessAsync (cmd:'TCmd) = processCmd cmd

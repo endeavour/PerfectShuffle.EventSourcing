@@ -42,6 +42,7 @@
     <Compile Include="StringExtensions.fs" />
     <Compile Include="ConcatenatedStreams.fs" />
     <Compile Include="EventStore.fs" />
+    <Compile Include="EventProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

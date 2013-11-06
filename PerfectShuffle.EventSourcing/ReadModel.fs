@@ -8,13 +8,13 @@
     abstract member CurrentState : unit -> 'TState
     abstract member CurrentStateAsync : unit -> Async<'TState>
 
-  type private Msg<'TEvent, 'TExternalState> =
+  type private ReadModelMsg<'TEvent, 'TExternalState> =
     | Update of List<'TEvent>
     | CurrentState of AsyncReplyChannel<'TExternalState>     
 
   type ReadModel<'TEvent, 'TInternalState, 'TExternalState>(initialState, evtAccumulator, expose) = 
     let agent =
-      Agent<Msg<'TEvent, 'TExternalState>>.Start(fun inbox ->
+      Agent<ReadModelMsg<'TEvent, 'TExternalState>>.Start(fun inbox ->
 
         let rec loop pendingEvents (internalState:'TInternalState) =
           match pendingEvents with

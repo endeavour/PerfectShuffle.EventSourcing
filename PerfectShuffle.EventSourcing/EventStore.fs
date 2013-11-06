@@ -3,6 +3,10 @@ open PerfectShuffle.EventSourcing.StringExtensions
 open System.IO
 open Newtonsoft.Json
 
+module EventMetadata =
+  let embellish evt =
+    {Id = -1L; Timestamp = System.DateTime.UtcNow; Event = evt}
+
 type EventStore(eventsFile:string) =
   
   let mutable init = false
@@ -66,7 +70,7 @@ type EventStore(eventsFile:string) =
     nextId := !nextId + 1L
 
   member __.ReadEvents<'event>() : EventWithMetadata<'event>[] = readEvents()
-
+  
   member __.Save (event:EventWithMetadata<'event>) =
     use stream = openOrAppend eventsFile
     use jsonWriter = new JsonTextWriter(stream)
