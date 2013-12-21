@@ -31,7 +31,6 @@ module JsonSerialization =
         else new Guid(str) :> obj
       | _ -> failwith "Invalid token when attempting to read Guid."
 
-
   type ListConverter() =
     inherit JsonConverter()
   
