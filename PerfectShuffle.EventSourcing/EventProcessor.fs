@@ -17,8 +17,10 @@ type EventProcessor<'TEvent, 'TState> (readModel:IReadModel<'TEvent,'TState>, st
         async {
         let! msg = inbox.Receive()
         match msg with
-        | Persist events ->          
-            readModel.Apply(events |> Seq.map (fun x -> x.Event))
+        | Persist events ->
+             // The sequence might have side effects which we don't want to repeat
+            let events = Seq.cache events
+            readModel.Apply(events)
             store.SaveAll(events)
             return! loop()
         | ReadState replyChannel ->          

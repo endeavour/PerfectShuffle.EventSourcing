@@ -1,8 +1,5 @@
 ﻿namespace PerfectShuffle.EventSourcing
 
-type Id = int64
-type EventWithMetadata<'event> = {Id : Id; Timestamp : System.DateTime; Event : 'event}
-
 type CmdOutput<'event> =
 | Success of seq<EventWithMetadata<'event>>
 | Failure of exn
