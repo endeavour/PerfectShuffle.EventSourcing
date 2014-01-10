@@ -41,25 +41,6 @@ module MyApp =
       
     deserialize readModel
 
-    let run cmd : Async<CmdOutput<_>> =
-      match cmd with
-      | SignUp (data) ->
-          async {
-          let! state = readModel.CurrentStateAsync()
-          let email = data.Email.ToLowerInvariant()
-          if state.Users.ContainsKey email
-            then
-              return Failure <| System.Exception("User already exists")
-            else
-              //send an email to user
-              let evts = seq {
-                yield
-                  UserCreated({Name=data.Name; Email=email; Password=data.Password; Company=data.Company})
-                  |> EventMetadata.embellish
-              }
-              return Success(evts)
-          }
-   
     let output = new System.IO.StreamWriter("events.data", append=true)
 
     readModel

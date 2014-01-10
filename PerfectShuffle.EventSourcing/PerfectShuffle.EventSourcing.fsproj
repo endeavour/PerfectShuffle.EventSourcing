@@ -38,7 +38,6 @@
   <ItemGroup>
     <Compile Include="Serialization.fs" />
     <Compile Include="ReadModel.fs" />
-    <Compile Include="CommandHandling.fs" />
     <Compile Include="StringExtensions.fs" />
     <Compile Include="ConcatenatedStreams.fs" />
     <Compile Include="EventStore.fs" />
