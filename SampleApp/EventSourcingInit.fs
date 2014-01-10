@@ -1,7 +1,6 @@
 ﻿namespace SampleApp
 module MyApp =
   open PerfectShuffle.EventSourcing
-  open PerfectShuffle.EventSourcing
   open SampleApp.Events
   open SampleApp.Domain
   open SampleApp.Commands
@@ -11,15 +10,14 @@ module MyApp =
   
   // Exposed to outside world, optimised for read access.
   type State = {Users : Map<string,User>}
+
+  let eventStore = EventStore("events.data")
   
   let deserialize (readmodel:IReadModel<_,_>) =
-    if System.IO.File.Exists("events.data") then
-      use input = System.IO.File.OpenRead("events.data")
-      let events = EventStore.ReadEvents<DomainEvent> input
-
-      events |> Seq.iteri (fun i evt ->
-        printfn "[%d] Applying event: %A" i evt
-        readmodel.Apply(events))
+    let events = eventStore.ReadEvents()
+    events |> Seq.iteri (fun i evt ->
+      printfn "[%d] Applying event: %A" i evt
+      readmodel.Apply(events))
 
   let init() =
      
@@ -29,10 +27,12 @@ module MyApp =
       let currentState:State = {Users = users}      
       currentState
     
+    let (|Event|) (evtWithMetaData:EventWithMetadata<DomainEvent>) = evtWithMetaData.Event
+
     /// Folds an event into the current state
-    let evtAccumulator (internalState:InternalState) (evt:DomainEvent) : InternalState =
+    let evtAccumulator (internalState:InternalState) (evt:EventWithMetadata<DomainEvent>) : InternalState =
       match evt with
-      | UserCreated(user) ->
+      | Event(UserCreated(user)) ->
         let newUsers = internalState.Users.Add({Name = user.Name; Company = user.Company; Email = user.Email; Password = user.Password})
         {Users = newUsers}
   
@@ -53,19 +53,13 @@ module MyApp =
             else
               //send an email to user
               let evts = seq {
-                yield UserCreated({Name=data.Name; Email=email; Password=data.Password; Company=data.Company})
+                yield
+                  UserCreated({Name=data.Name; Email=email; Password=data.Password; Company=data.Company})
+                  |> EventMetadata.embellish
               }
               return Success(evts)
           }
    
     let output = new System.IO.StreamWriter("events.data", append=true)
-    let save = PerfectShuffle.EventSourcing.EventStore.Serialize(output.BaseStream)
-    let serialize (evts:seq<DomainEvent>) =
-      async {
-        for evt in evts do
-          save evt
-      }
 
-    let cmdProcessor = CommandProcessor<_,_,_>(readModel, run, serialize)    
-  
-    readModel, cmdProcessor
+    readModel

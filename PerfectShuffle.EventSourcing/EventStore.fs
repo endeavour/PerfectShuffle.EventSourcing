@@ -8,7 +8,8 @@ module EventMetadata =
     {Id = -1L; Timestamp = System.DateTime.UtcNow; Event = evt}
 
 type EventStore(eventsFile:string) =
-  
+  //TODO: Support different serialization mechanisms
+
   let mutable init = false
   
   let nextId = ref 0L
