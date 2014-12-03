@@ -3,25 +3,28 @@
 
   type Agent<'t> = MailboxProcessor<'t>
 
-  type Id = int64
-  type EventWithMetadata<'event> = {Id : Id; Timestamp : System.DateTime; Event : 'event}
+  type Id = System.Guid
+  type EventWithMetadata<'event> =
+    {Id : Id; Timestamp : System.DateTime; Event : 'event}
+      with
+        static member Wrap evt = {Id = System.Guid.NewGuid(); Timestamp = System.DateTime.UtcNow; Event = evt}
  
-  type IReadModel<'TEvent, 'TState> =
+  type IReadModel<'TState, 'TEvent> =
     abstract member Apply : events:seq<EventWithMetadata<'TEvent>> -> unit
     abstract member CurrentState : unit -> 'TState
     abstract member CurrentStateAsync : unit -> Async<'TState>
     abstract member Events : unit -> EventWithMetadata<'TEvent>[]
 
-  type private ReadModelMsg<'TEvent, 'TExternalState> =
+  type private ReadModelMsg<'TExternalState, 'TEvent> =
     | Update of List<EventWithMetadata<'TEvent>>
     | CurrentState of AsyncReplyChannel<'TExternalState>     
     | EventsSnapshot of AsyncReplyChannel<EventWithMetadata<'TEvent>[]>
 
-  type ReadModel<'TEvent, 'TInternalState, 'TExternalState>(initialState, evtAccumulator, expose) = 
+  type ReadModel<'TState,'TEvent>(initialState, apply) = 
     let agent =
-      Agent<ReadModelMsg<'TEvent, 'TExternalState>>.Start(fun inbox ->
+      Agent<ReadModelMsg<'TState, 'TEvent>>.Start(fun inbox ->
         let events : EventWithMetadata<'TEvent> list ref = ref []
-        let rec loop pendingEvents (internalState:'TInternalState) =
+        let rec loop pendingEvents (internalState:'TState) =
           match pendingEvents with
           | [] ->
             async {            
@@ -31,8 +34,7 @@
             | Update(evts) ->  
               return! loop evts internalState
             | CurrentState replyChannel ->
-                let currentState = expose internalState
-                replyChannel.Reply currentState
+                replyChannel.Reply internalState
                 return! loop pendingEvents internalState                      
             | EventsSnapshot(replyChannel) ->
               let evts = !events |> List.rev |> List.toArray              
@@ -40,14 +42,14 @@
               return! loop pendingEvents internalState 
             }
           | firstEvent::remainingEvents ->
-            let newState = evtAccumulator internalState firstEvent
+            let newState = apply internalState firstEvent
             events := firstEvent :: !events
             loop remainingEvents newState                   
 
         loop [] initialState
         )
 
-    interface IReadModel<'TEvent, 'TExternalState> with  
+    interface IReadModel<'TState, 'TEvent> with  
       member __.Apply evts =
         let msg = Update(evts |> Seq.toList)
         agent.Post msg

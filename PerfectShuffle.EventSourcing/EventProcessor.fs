@@ -6,11 +6,11 @@ type private Msg<'TEvent, 'TState> =
 | ReadState of AsyncReplyChannel<'TState>
 | Exit
 
-type IEventProcessor<'TEvent, 'TState> =
+type IEventProcessor<'TState, 'TEvent> =
   abstract member Persist : seq<EventWithMetadata<'TEvent>> -> unit
   abstract member ApplicationState : unit -> Async<'TState>
 
-type EventProcessor<'TEvent, 'TState> (readModel:IReadModel<'TEvent,'TState>, store : EventStore) = 
+type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, store : Store.EventRepository<'TEvent>) = 
   let agent =
     MailboxProcessor<_>.Start(fun inbox ->
       let rec loop() =
@@ -21,7 +21,8 @@ type EventProcessor<'TEvent, 'TState> (readModel:IReadModel<'TEvent,'TState>, st
              // The sequence might have side effects which we don't want to repeat
             let events = Seq.cache events
             readModel.Apply(events)
-            store.SaveAll(events)
+            for evt in events do
+              do! store.Save(evt)
             return! loop()
         | ReadState replyChannel ->          
             let! state = readModel.CurrentStateAsync()
@@ -32,7 +33,7 @@ type EventProcessor<'TEvent, 'TState> (readModel:IReadModel<'TEvent,'TState>, st
       loop()
       )
 
-  interface IEventProcessor<'TEvent, 'TState> with
+  interface IEventProcessor<'TState, 'TEvent> with
     /// Applies a batch of events and persists them to disk
     member __.Persist (events:seq<EventWithMetadata<'TEvent>>) =
       agent.Post <| Persist events

@@ -1,86 +1,33 @@
 ﻿namespace PerfectShuffle.EventSourcing
-open PerfectShuffle.EventSourcing.StringExtensions
-open System.IO
-open Newtonsoft.Json
+module Store =
 
-module EventMetadata =
-  let embellish evt =
-    {Id = -1L; Timestamp = System.DateTime.UtcNow; Event = evt}
+  open System
+  open System.Net
+  open EventStore.ClientAPI
 
-type EventStore(eventsFile:string) =
-  //TODO: Support different serialization mechanisms
+  /// Creates and opens an EventStore connection.
+  let conn endPoint =   
+      let conn = EventStoreConnection.Create(endPoint)      
+      conn.Connect()
+      conn
 
-  let mutable init = false
-  
-  let nextId = ref 0L
-  let jsonSerializer = new JsonSerializer()  
-  let converters : JsonConverter[] = [|
-    new JsonSerialization.GuidConverter()
-    new JsonSerialization.ListConverter()
-    new JsonSerialization.OptionTypeConverter()
-    new JsonSerialization.TupleArrayConverter()
-    new JsonSerialization.UnionTypeConverter()  
-    |]
-  
-  do
-    for converter in converters do
-      jsonSerializer.Converters.Add(converter)  
+  type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, serialize:obj -> string * byte[], deserialize: Type * string * byte array -> obj) =
+    let load () = async {
+      let! eventsSlice = conn.ReadStreamEventsForwardAsync(streamId, 0, Int32.MaxValue, false) |> Async.AwaitTask
+      return
+        eventsSlice.Events
+        |> Seq.map (fun e -> deserialize(typeof<EventWithMetadata<'TEvent>>, e.Event.EventType, e.Event.Data))    
+        |> Seq.cast<EventWithMetadata<'TEvent>>
+    }
 
-  let readEvents() =
-    if System.IO.File.Exists eventsFile then
-      use rawStream = File.OpenRead eventsFile
-      use stream = new ConcatenatedStream(["[".ToStream(); rawStream; "]".ToStream()])
-      
-      use sr = new StreamReader(stream)
+    let commit (expectedVersion) (e:EventWithMetadata<'e>) = async {
+        let eventType,data = serialize e
+        let metaData = [||] : byte array
+        let eventData = new EventData(Guid.NewGuid(), eventType, true, data, metaData)
+        let expectedVersion = if expectedVersion = 0 then ExpectedVersion.NoStream else expectedVersion
+        return! conn.AppendToStreamAsync(streamId, expectedVersion, eventData) |> Async.AwaitIAsyncResult |> Async.Ignore
+    }
 
-      use jsonReader = new JsonTextReader(sr)
-      
-      let events =
-        if not (jsonReader.Read()) || jsonReader.TokenType <> JsonToken.StartArray
-          then invalidOp "Unexpected data in events file"
-          else
-            seq {
-            while jsonReader.Read() && jsonReader.TokenType <> JsonToken.EndArray do
-              let evt = jsonSerializer.Deserialize<EventWithMetadata<'event>>(jsonReader)
-              nextId := evt.Id + 1L
-              yield evt
-            }
+    member __.Load() = load()
+    member __.Save(evt) = commit ExpectedVersion.Any evt
 
-      let events' = events |> Seq.toArray
-      events'
-           
-    else
-      Array.empty
-
-  let openOrAppend file =
-    let streamWriter =
-      if System.IO.File.Exists file then
-        System.IO.File.AppendText file
-      else
-        let file  = System.IO.File.OpenWrite file
-        let sw = new System.IO.StreamWriter(file)
-        sw
-    streamWriter
-
-  let save evt (jsonWriter:JsonTextWriter) =
-    jsonWriter.WriteComment("EVENT: " + string !nextId)
-    jsonWriter.WriteWhitespace("\n")
-    jsonSerializer.Serialize(jsonWriter, {evt with Id = !nextId})
-    jsonWriter.WriteRaw ","
-    jsonWriter.WriteWhitespace("\n")    
-    nextId := !nextId + 1L
-
-  member __.ReadEvents<'event>() : EventWithMetadata<'event>[] = readEvents()
-  
-  member __.Save (event:EventWithMetadata<'event>) =
-    use stream = openOrAppend eventsFile
-    use jsonWriter = new JsonTextWriter(stream)
-    jsonWriter.CloseOutput <- false
-    save event jsonWriter
-
-  member __.SaveAll (events:seq<EventWithMetadata<'event>>) =
-    use stream = openOrAppend eventsFile
-    use jsonWriter = new JsonTextWriter(stream)
-    jsonWriter.CloseOutput <- false
-    for event in events do
-      save event jsonWriter
