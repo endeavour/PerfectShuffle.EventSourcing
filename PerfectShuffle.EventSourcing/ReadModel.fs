@@ -14,6 +14,7 @@
     abstract member CurrentState : unit -> 'TState
     abstract member CurrentStateAsync : unit -> Async<'TState>
     abstract member Events : unit -> EventWithMetadata<'TEvent>[]
+    abstract member Error : IEvent<Handler<exn>, exn>
 
   type private ReadModelMsg<'TExternalState, 'TEvent> =
     | Update of List<EventWithMetadata<'TEvent>>
@@ -57,4 +58,5 @@
       member __.CurrentState() = agent.PostAndReply(fun reply -> CurrentState(reply))
       member __.CurrentStateAsync() = agent.PostAndAsyncReply(fun reply -> CurrentState(reply))
       member __.Events() = agent.PostAndReply(fun reply -> EventsSnapshot(reply))
+      member __.Error = agent.Error
    
