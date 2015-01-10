@@ -8,7 +8,7 @@ module Store =
   /// Creates and opens an EventStore connection.
   let conn endPoint =   
       let conn = EventStoreConnection.Create(endPoint)      
-      conn.Connect()
+      conn.ConnectAsync().RunSynchronously() //TODO: Make async
       conn
 
   type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, serialize:obj -> string * byte[], deserialize: Type * string * byte array -> obj) =
