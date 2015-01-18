@@ -4,7 +4,6 @@ open PerfectShuffle.EventSourcing
 type private Msg<'TEvent, 'TState> =
 | Persist of seq<EventWithMetadata<'TEvent>>
 | ReadState of AsyncReplyChannel<'TState>
-| PersistAndReadState of seq<EventWithMetadata<'TEvent>> * AsyncReplyChannel<'TState> // Atomically apply events and then immediately get the new state
 | Exit
 
 type IEventProcessor<'TState, 'TEvent> =
@@ -12,6 +11,16 @@ type IEventProcessor<'TState, 'TEvent> =
   abstract member ApplicationState : unit -> Async<'TState>
 
 type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, store : Store.EventRepository<'TEvent>) = 
+  
+  let asyncAgent = Agent<_>.Start(fun inbox ->
+    let rec loop() =
+      async {
+      let! msg = inbox.Receive()
+      return! loop()
+      }
+    loop()
+  )
+ 
   let agent =
     MailboxProcessor<_>.Start(fun inbox ->
       
@@ -27,12 +36,7 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
       let rec loop() =
         async {
         let! msg = inbox.Receive()
-        match msg with
-        | PersistAndReadState (events,replyChannel) ->
-            do! persist events
-            let! state = readModel.CurrentStateAsync()
-            replyChannel.Reply state
-            return! loop()          
+        match msg with        
         | Persist events ->
             do! persist events
             return! loop()
