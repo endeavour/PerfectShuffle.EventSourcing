@@ -12,12 +12,15 @@ module Store =
       conn
 
   type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, serialize:obj -> string * byte[], deserialize: Type * string * byte array -> obj) =
+    
+    let unpack (e:ResolvedEvent) =
+      deserialize(typeof<EventWithMetadata<'TEvent>>, e.Event.EventType, e.Event.Data) :?> EventWithMetadata<'TEvent>
+      
+    
     let load () = async {
       let! eventsSlice = conn.ReadStreamEventsForwardAsync(streamId, 0, Int32.MaxValue, false) |> Async.AwaitTask
       return
-        eventsSlice.Events
-        |> Seq.map (fun e -> deserialize(typeof<EventWithMetadata<'TEvent>>, e.Event.EventType, e.Event.Data))    
-        |> Seq.cast<EventWithMetadata<'TEvent>>
+        eventsSlice.Events |> Seq.map unpack
     }
 
     let commit (expectedVersion) (e:EventWithMetadata<'e>) = async {
@@ -28,6 +31,16 @@ module Store =
         return! conn.AppendToStreamAsync(streamId, expectedVersion, eventData) |> Async.AwaitIAsyncResult |> Async.Ignore
     }
 
+    let subscribe(observer : (EventStoreSubscription * EventWithMetadata<'TEvent>) -> unit) =
+      let f = System.Action<EventStoreSubscription, ResolvedEvent>(fun sub evt ->
+          let unpacked = unpack evt
+          observer (sub, unpacked)
+        )
+      let subscription = conn.SubscribeToStreamAsync(streamId, false, f) |> Async.AwaitTask |> Async.RunSynchronously
+      
+      {new IDisposable with member __.Dispose() = subscription.Dispose()}
+
+    member __.Subscribe(observer) = subscribe observer
     member __.Load() = load()
     member __.Save(evt) = commit ExpectedVersion.Any evt
 

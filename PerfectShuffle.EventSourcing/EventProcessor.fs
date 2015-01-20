@@ -28,7 +28,6 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
         async {
         // The sequence might have side effects which we don't want to repeat
         let events = Seq.cache events
-        readModel.Apply(events)
         for evt in events do
           do! store.Save(evt)      
         }
