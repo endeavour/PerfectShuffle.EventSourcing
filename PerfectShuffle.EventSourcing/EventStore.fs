@@ -11,11 +11,23 @@ module Store =
       conn.ConnectAsync().Wait()
       conn
 
+  type WriteConcurrencyCheck =
+  | Any
+  | NoStream
+  | EmptyStream
+  | NewEventNumber of int
+
+  type WriteResult =
+  | Success
+  | ConcurrencyCheckFailed
+  | WriteException of exn
+
+  type NewEventArgs<'TEvent> = {EventNumber : int; Event : EventWithMetadata<'TEvent>}
+
   type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, serialize:obj -> string * byte[], deserialize: Type * string * byte array -> obj) =
     
     let unpack (e:ResolvedEvent) =
       deserialize(typeof<EventWithMetadata<'TEvent>>, e.Event.EventType, e.Event.Data) :?> EventWithMetadata<'TEvent>
-      
     
     let load () = async {
       let! eventsSlice = conn.ReadStreamEventsForwardAsync(streamId, 0, Int32.MaxValue, false) |> Async.AwaitTask
@@ -23,24 +35,55 @@ module Store =
         eventsSlice.Events |> Seq.map unpack
     }
 
-    let commit (expectedVersion) (e:EventWithMetadata<'e>) = async {
-        let eventType,data = serialize e
-        let metaData = [||] : byte array
-        let eventData = new EventData(Guid.NewGuid(), eventType, true, data, metaData)
-        let expectedVersion = if expectedVersion = 0 then ExpectedVersion.NoStream else expectedVersion
-        return! conn.AppendToStreamAsync(streamId, expectedVersion, eventData) |> Async.AwaitIAsyncResult |> Async.Ignore
+    let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'e>[]) = async {
+        let eventsData =
+          evts |> Array.map (fun e ->
+            let eventType,data = serialize e
+            let metaData = [||] : byte array
+            new EventData(Guid.NewGuid(), eventType, true, data, metaData)          
+          )
+
+        let expectedVersion =
+          match concurrencyCheck with
+          | Any -> ExpectedVersion.Any
+          | NoStream -> ExpectedVersion.NoStream
+          | EmptyStream -> ExpectedVersion.EmptyStream
+          | NewEventNumber n -> n - 1
+
+        let! result =
+          conn.AppendToStreamAsync(streamId, expectedVersion, eventsData)
+          |> Async.AwaitTask
+          |> Async.Catch
+        
+        let rec getInnerException (exn:Exception) =
+          match exn with
+          | :? System.AggregateException as e ->
+            if e.InnerExceptions.Count = 1
+              then getInnerException e.InnerException
+              else exn
+          | e -> e
+        
+        let r =
+          match result with
+          | Choice.Choice1Of2(writeResult) -> Success
+          | Choice.Choice2Of2(exn) ->
+            match getInnerException exn with
+            | :? EventStore.ClientAPI.Exceptions.WrongExpectedVersionException -> ConcurrencyCheckFailed
+            | e -> WriteException(e)            
+        return r
     }
 
-    let subscribe(observer : (EventStoreSubscription * EventWithMetadata<'TEvent>) -> unit) =
-      let f = System.Action<EventStoreSubscription, ResolvedEvent>(fun sub evt ->
+    let subscribe (observer : NewEventArgs<'TEvent> -> unit) =
+      let f = System.Action<_, ResolvedEvent>(fun _ evt ->
           let unpacked = unpack evt
-          observer (sub, unpacked)
+          let eventNumber = evt.OriginalEventNumber
+          observer ({EventNumber = eventNumber; Event = unpacked})
         )
-      let subscription = conn.SubscribeToStreamAsync(streamId, false, f) |> Async.AwaitTask |> Async.RunSynchronously
       
-      {new IDisposable with member __.Dispose() = subscription.Dispose()}
+      let subscription = conn.SubscribeToStreamFrom(streamId, EventStore.ClientAPI.StreamCheckpoint.StreamStart, false, f)
+      
+      {new IDisposable with member __.Dispose() = subscription.Stop()}
 
     member __.Subscribe(observer) = subscribe observer
-    member __.Load() = load()
-    member __.Save(evt) = commit ExpectedVersion.Any evt
+    member __.Save(evts, concurrencyCheck) = commit concurrencyCheck evts
 
