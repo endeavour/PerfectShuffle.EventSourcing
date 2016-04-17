@@ -1,9 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing", "PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj", "{101CF299-21FD-4535-8E15-92EFBBDDC9EF}"
+# Visual Studio 14
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{12E7246B-A4E8-4294-AE95-4421BD21E503}"
+	ProjectSection(SolutionItems) = preProject
+		paket.dependencies = paket.dependencies
+		paket.lock = paket.lock
+	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SampleApp", "SampleApp\SampleApp.fsproj", "{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing", "PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj", "{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,14 +19,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{101CF299-21FD-4535-8E15-92EFBBDDC9EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{101CF299-21FD-4535-8E15-92EFBBDDC9EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{101CF299-21FD-4535-8E15-92EFBBDDC9EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{101CF299-21FD-4535-8E15-92EFBBDDC9EF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

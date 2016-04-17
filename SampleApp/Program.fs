@@ -4,20 +4,20 @@ open PerfectShuffle.EventSourcing
 [<EntryPoint>]
 let main argv = 
 
-    let readModel = SampleApp.MyApp.init()
+    let eventProcessor = SampleApp.MySampleApp.initialiseEventProcessor()
     
     let evts =
-       [
-         SampleApp.Events.UserCreated({Name="James"; Email="james@ciseware.com"; Password="letmein"; Company = "Acme Corp"})
-         |> EventMetadata.embellish
-       ]
+       let email = sprintf "%d@test.com" System.DateTime.UtcNow.Ticks
+       [|         
+         SampleApp.Events.UserCreated({Name="James"; Email=email; Password="letmein"; Company = "Acme Corp"})
+         |> EventWithMetadata<_>.Wrap
+       |]
 
     printfn "Applying events... %A" evts
-    readModel.Apply(evts)
-
+    
     async {
-      let! currentState = readModel.CurrentStateAsync()
-      let users = currentState.Users
+      let! currentState = eventProcessor.Persist evts      
+      let users = currentState.State.Users
 
       printfn "Current users:"
       for user in users do

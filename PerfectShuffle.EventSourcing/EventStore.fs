@@ -6,7 +6,7 @@ module Store =
   open EventStore.ClientAPI
 
   /// Creates and opens an EventStore connection.
-  let conn endPoint =   
+  let conn (endPoint:IPEndPoint) =   
       let conn = EventStoreConnection.Create(endPoint)      
       conn.ConnectAsync().Wait()
       conn

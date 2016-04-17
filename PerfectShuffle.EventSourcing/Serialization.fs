@@ -5,30 +5,31 @@ module Serialization =
   open System
   open System.IO
   open System.Text
-  open Newtonsoft.Json
-  open FifteenBelow.Json
-
+  
   module private JsonNet =
 
       open System.Collections.Generic
+      open Newtonsoft.Json
+      open Newtonsoft.Json.FSharp
       open Newtonsoft.Json.Serialization
       open Newtonsoft.Json.Converters
       open Microsoft.FSharp.Reflection
-
-      let converters =
-        [|
-          OptionConverter () :> JsonConverter
-          TupleConverter () :> JsonConverter
-          ListConverter () :> JsonConverter
-          MapConverter () :> JsonConverter
-          BoxedMapConverter () :> JsonConverter
-          UnionConverter () :> JsonConverter
-        |]
-     
+          
       let s = new JsonSerializer()
-      s.ContractResolver <- CamelCasePropertyNamesContractResolver ()
-      converters |> Seq.iter (fun x -> s.Converters.Add(x))
+      
+      s.ContractResolver <- CamelCasePropertyNamesContractResolver ()      
       s.Formatting <- Formatting.Indented
+      [|
+        BigIntConverter() :> JsonConverter
+        CultureInfoConverter() :> JsonConverter
+        GuidConverter() :> JsonConverter
+        ListConverter() :> JsonConverter
+        MapConverter() :> JsonConverter
+        OptionConverter() :> JsonConverter
+        TupleArrayConverter() :> JsonConverter
+        UnionConverter() :> JsonConverter
+        UriConverter() :> JsonConverter
+      |] |> Seq.iter (s.Converters.Add)
       s.NullValueHandling <- NullValueHandling.Ignore
     
       let eventType o =
@@ -40,11 +41,15 @@ module Serialization =
           else t.Name
         
       let serialize o =
+        try
           use ms = new MemoryStream()
           (use jsonWriter = new JsonTextWriter(new StreamWriter(ms))
           s.Serialize(jsonWriter, o))
           let data = ms.ToArray()
           (eventType o),data
+        with e ->
+          let a = e
+          raise e
 
       let deserialize (t, et:string, data:byte array) =
           use ms = new MemoryStream(data)
@@ -53,9 +58,4 @@ module Serialization =
           s.Deserialize(jsonReader, t)
 
   let serializer = JsonNet.serialize,JsonNet.deserialize
-
-  let deserializet<'T> (data:byte array) =
-      let json = Encoding.UTF8.GetString(data)
-      JsonConvert.DeserializeObject<'T>(json)
-    
 

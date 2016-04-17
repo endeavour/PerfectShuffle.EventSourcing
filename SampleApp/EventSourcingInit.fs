@@ -1,46 +1,68 @@
 ﻿namespace SampleApp
-module MyApp =
+
+module MySampleApp =
+
   open PerfectShuffle.EventSourcing
-  open SampleApp.Events
   open SampleApp.Domain
-  open SampleApp.Commands
-  
-  // Optimised for applying events.
-  type InternalState = {Users : Set<User>}
+  open SampleApp.Events
   
   // Exposed to outside world, optimised for read access.
   type State = {Users : Map<string,User>}
+    with
+      static member Zero = {Users = Map.empty}
 
-  let eventStore = EventStore("events.data")
-  
-  let deserialize (readmodel:IReadModel<_,_>) =
-    let events = eventStore.ReadEvents()
-    events |> Seq.iteri (fun i evt ->
-      printfn "[%d] Applying event: %A" i evt
-      readmodel.Apply(events))
+  let apply (state:State) (eventWithMetadata:EventWithMetadata<SampleApp.Events.DomainEvent>) =
+    match eventWithMetadata.Event with
+    | DomainEvent.UserCreated userInfo ->
+      let newUser : User =
+        {
+          Name = userInfo.Name
+          Company = userInfo.Company
+          Email = userInfo.Email
+          Password = userInfo.Password
+        }
+      let newUsers = state.Users.Add(userInfo.Email, newUser)
+      {state with Users = newUsers}
 
-  let init() =
-     
-    /// Converts internal state to the readmodel
-    let expose (internalState:InternalState) =
-      let users = internalState.Users |> Set.map (fun user -> user.Email, user) |> Map.ofSeq      
-      let currentState:State = {Users = users}      
-      currentState
+  let mutable eventStoreSubscription : Option<System.IDisposable> = None
+
+  exception EventProcessorException of exn
+
+  let getBootstrapEvents (readModel:IReadModel<State,DomainEvent>) =
+      [||]
+      |> Array.map (EventWithMetadata<_>.Wrap)
+
+  let initialiseEventProcessor() =
+    // TODO: Can we encapsulate all the GregYoung eventstore stuff in PerfectShuffle.EventSourcing?
+    let eventStoreEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 1113)
+    let eventStoreConnection = PerfectShuffle.EventSourcing.Store.conn eventStoreEndpoint
+    let s,d = PerfectShuffle.EventSourcing.Serialization.serializer
+    let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply) :> IReadModel<_,_>            
+
+    readModel.Error.Subscribe(fun e ->
+      raise <| EventProcessorException(e)
+      ) |> ignore<System.IDisposable>
+
+    let repository = Store.EventRepository<DomainEvent>(eventStoreConnection, "SampleAppEvents", s, d)
     
-    let (|Event|) (evtWithMetaData:EventWithMetadata<DomainEvent>) = evtWithMetaData.Event
+    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>  
 
-    /// Folds an event into the current state
-    let evtAccumulator (internalState:InternalState) (evt:EventWithMetadata<DomainEvent>) : InternalState =
-      match evt with
-      | Event(UserCreated(user)) ->
-        let newUsers = internalState.Users.Add({Name = user.Name; Company = user.Company; Email = user.Email; Password = user.Password})
-        {Users = newUsers}
-  
-    let initialState:InternalState = {Users = Set.empty}
-    let readModel:IReadModel<_,_> = upcast ReadModel<DomainEvent,InternalState,State>(initialState, evtAccumulator, expose)     
-      
-    deserialize readModel
+    let initialBootstrapResult =
+      let bootstrapEvents = getBootstrapEvents readModel
+      let bootstrapResult =
+        repository.Save(bootstrapEvents, Store.WriteConcurrencyCheck.NoStream)
+        |> Async.RunSynchronously
+      match bootstrapResult with
+      | Store.WriteResult.ConcurrencyCheckFailed ->
+        printfn "Stream already exists, skipping bootstrap events."
+      | Store.Success ->
+        printfn "Boostrapped"
+      | Store.WriteException e -> raise e
 
-    let output = new System.IO.StreamWriter("events.data", append=true)
-
-    readModel
+    printf "Subscribing to events feed..."    
+    let subscription = repository.Subscribe(fun e ->      
+      readModel.Apply(e.EventNumber, [|e.Event|]))
+    eventStoreSubscription <- Some(subscription)
+    printfn "[OK]"
+        
+    evtProcessor
