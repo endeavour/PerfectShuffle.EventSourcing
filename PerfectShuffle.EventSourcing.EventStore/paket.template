@@ -1,0 +1,5 @@
+type project
+licenseUrl http://creativecommons.org/licenses/by/3.0/
+authors James Freiwirth
+description
+  A provider for EventStore (www.geteventstore.com) for the Perfect Shuffle Eventsourcing Library

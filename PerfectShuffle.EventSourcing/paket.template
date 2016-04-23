@@ -1,0 +1,5 @@
+type project
+licenseUrl http://creativecommons.org/licenses/by/3.0/
+authors James Freiwirth
+description
+  Event Sourcing library for F#
