@@ -4,7 +4,7 @@ open PerfectShuffle.EventSourcing
 [<EntryPoint>]
 let main argv = 
 
-    let eventProcessor = SampleApp.MySampleApp.initialiseEventProcessor()
+    let eventSubscription, eventProcessor = SampleApp.MySampleApp.initialiseEventProcessor()
     
     let evts =
        let email = sprintf "%d@test.com" System.DateTime.UtcNow.Ticks

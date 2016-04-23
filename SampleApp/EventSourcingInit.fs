@@ -25,8 +25,6 @@ module MySampleApp =
       let newUsers = state.Users.Add(userInfo.Email, newUser)
       {state with Users = newUsers}
 
-  let mutable eventStoreSubscription : Option<System.IDisposable> = None
-
   exception EventProcessorException of exn
 
   let getBootstrapEvents (readModel:IReadModel<State,DomainEvent>) =
@@ -64,7 +62,7 @@ module MySampleApp =
     printf "Subscribing to events feed..."    
     let subscription = repository.Events.Subscribe(fun e ->      
       readModel.Apply(e.EventNumber, [|e.Event|]))
-    eventStoreSubscription <- Some(subscription)
+    
     printfn "[OK]"
         
-    evtProcessor
+    subscription, evtProcessor
