@@ -3,6 +3,7 @@
 module MySampleApp =
 
   open PerfectShuffle.EventSourcing
+  open PerfectShuffle.EventSourcing.EventStore
   open SampleApp.Domain
   open SampleApp.Events
   
@@ -32,25 +33,26 @@ module MySampleApp =
       [||]
       |> Array.map (EventWithMetadata<_>.Wrap)
 
-  let initialiseEventProcessor() =
-    // TODO: Can we encapsulate all the GregYoung eventstore stuff in PerfectShuffle.EventSourcing?
+  let initialiseEventProcessor() =    
     let eventStoreEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 1113)
-    let eventStoreConnection = PerfectShuffle.EventSourcing.Store.conn eventStoreEndpoint
-    let s,d = PerfectShuffle.EventSourcing.Serialization.serializer
-    let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply) :> IReadModel<_,_>            
+    let eventStoreConnection = EventStore.Connect eventStoreEndpoint
 
+    let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply) :> IReadModel<_,_>            
+    
     readModel.Error.Subscribe(fun e ->
       raise <| EventProcessorException(e)
       ) |> ignore<System.IDisposable>
 
-    let repository = Store.EventRepository<DomainEvent>(eventStoreConnection, "SampleAppEvents", s, d)
+    let serializer = Serialization.CreateDefaultSerializer<DomainEvent>()
+
+    let repository = EventRepository<DomainEvent>(eventStoreConnection, "SampleAppEvents", serializer) :> Store.IEventRepository<_>
     
     let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>  
 
     let initialBootstrapResult =
       let bootstrapEvents = getBootstrapEvents readModel
       let bootstrapResult =
-        repository.Save(bootstrapEvents, Store.WriteConcurrencyCheck.NoStream)
+        repository.Save bootstrapEvents Store.WriteConcurrencyCheck.NoStream
         |> Async.RunSynchronously
       match bootstrapResult with
       | Store.WriteResult.ConcurrencyCheckFailed ->
@@ -60,7 +62,7 @@ module MySampleApp =
       | Store.WriteException e -> raise e
 
     printf "Subscribing to events feed..."    
-    let subscription = repository.Subscribe(fun e ->      
+    let subscription = repository.Events.Subscribe(fun e ->      
       readModel.Apply(e.EventNumber, [|e.Event|]))
     eventStoreSubscription <- Some(subscription)
     printfn "[OK]"

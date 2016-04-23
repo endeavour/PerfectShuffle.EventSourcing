@@ -55,6 +55,11 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\PerfectShuffle.EventSourcing.EventStore\PerfectShuffle.EventSourcing.EventStore.fsproj">
+      <Name>PerfectShuffle.EventSourcing.EventStore</Name>
+      <Project>{9b6efe2c-015b-4ab7-8750-c22f2a2e98a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj">
       <Name>PerfectShuffle.EventSourcing</Name>
       <Project>{4f9159c3-062e-4cfc-8ccc-87a6c8265e61}</Project>
@@ -85,7 +90,7 @@
   </Target>
   -->
   <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
       <ItemGroup>
         <Reference Include="EventStore.ClientAPI">
           <HintPath>..\packages\EventStore.Client\lib\net40\EventStore.ClientAPI.dll</HintPath>

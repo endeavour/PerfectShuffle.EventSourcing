@@ -2,6 +2,16 @@
 
 module Serialization =
 
+  type SerializedEvent =
+    {
+      TypeName : string
+      Payload : byte[]
+    }
+
+  type IEventSerializer<'TEvent> =
+    abstract member Serialize : EventWithMetadata<'TEvent> -> SerializedEvent
+    abstract member Deserialize : SerializedEvent -> EventWithMetadata<'TEvent>
+
   open System
   open System.IO
   open System.Text
@@ -57,5 +67,11 @@ module Serialization =
           use jsonReader = new JsonTextReader(sr)
           s.Deserialize(jsonReader, t)
 
-  let serializer = JsonNet.serialize,JsonNet.deserialize
-
+  let CreateDefaultSerializer<'TEvent>() = 
+    { new IEventSerializer<'TEvent> with
+      member __.Serialize e =
+        let typ,payload = box e |> JsonNet.serialize
+        { TypeName = typ; Payload = payload}
+      member __.Deserialize e = 
+        JsonNet.deserialize (typeof<EventWithMetadata<'TEvent>>, e.TypeName, e.Payload) :?> _
+      }

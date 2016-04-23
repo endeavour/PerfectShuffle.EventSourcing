@@ -13,6 +13,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SampleApp", "SampleApp\Samp
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing", "PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj", "{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.EventStore", "PerfectShuffle.EventSourcing.EventStore\PerfectShuffle.EventSourcing.EventStore.fsproj", "{9B6EFE2C-015B-4AB7-8750-C22F2A2E98A3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B6EFE2C-015B-4AB7-8750-C22F2A2E98A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B6EFE2C-015B-4AB7-8750-C22F2A2E98A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B6EFE2C-015B-4AB7-8750-C22F2A2E98A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B6EFE2C-015B-4AB7-8750-C22F2A2E98A3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

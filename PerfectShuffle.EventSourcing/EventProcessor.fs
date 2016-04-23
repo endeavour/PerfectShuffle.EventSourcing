@@ -11,7 +11,7 @@ type IEventProcessor<'TState, 'TEvent> =
   abstract member ExtendedState : unit -> Async<ReadModelState<'TState>>
   abstract member State : unit -> Async<'TState>
 
-type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, store : Store.EventRepository<'TEvent>) = 
+type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, store : Store.IEventRepository<'TEvent>) = 
   
   let asyncAgent = Agent<_>.Start(fun inbox ->
     let rec loop() =
@@ -30,7 +30,7 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
             let! currentState = readModel.CurrentStateAsync()
             let nextEventNumber = currentState.NextEventNumber
             let concurrency = Store.WriteConcurrencyCheck.NewEventNumber(nextEventNumber)
-            let! r = store.Save(events, concurrency)
+            let! r = store.Save events concurrency
             
             match r with
             | Store.WriteResult.Success ->
