@@ -2,6 +2,7 @@ source https://www.nuget.org/api/v2/
 framework >= net45
 redirects: on
 
-nuget EventStore.Client 3.5.2 framework: >= net452
-nuget newtonsoft.json
+nuget EventStore.Client
+nuget Newtonsoft.Json
 nuget Newtonsoft.Json.FSharp
+nuget FSharpx.Collections

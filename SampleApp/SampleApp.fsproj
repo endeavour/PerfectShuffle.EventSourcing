@@ -37,35 +37,6 @@
     <DocumentationFile>bin\Release\SampleApp.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Events.fs" />
-    <Compile Include="BusinessDomain.fs" />
-    <Compile Include="Commands.fs" />
-    <Compile Include="EventSourcingInit.fs" />
-    <Compile Include="Program.fs" />
-    <None Include="App.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\PerfectShuffle.EventSourcing.EventStore\PerfectShuffle.EventSourcing.EventStore.fsproj">
-      <Name>PerfectShuffle.EventSourcing.EventStore</Name>
-      <Project>{9b6efe2c-015b-4ab7-8750-c22f2a2e98a3}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj">
-      <Name>PerfectShuffle.EventSourcing</Name>
-      <Project>{4f9159c3-062e-4cfc-8ccc-87a6c8265e61}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
@@ -89,8 +60,42 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Compile Include="Events.fs" />
+    <Compile Include="BusinessDomain.fs" />
+    <Compile Include="Commands.fs" />
+    <Compile Include="EventSourcingInit.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="App.config" />
+    <Content Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="FSharp.Core">
+      <HintPath>..\packages\FSharp.Core.3.0.2\lib\net40\FSharp.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSharpx.Collections">
+      <HintPath>..\packages\FSharpx.Collections\lib\net40\FSharpx.Collections.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\PerfectShuffle.EventSourcing.EventStore\PerfectShuffle.EventSourcing.EventStore.fsproj">
+      <Name>PerfectShuffle.EventSourcing.EventStore</Name>
+      <Project>{9b6efe2c-015b-4ab7-8750-c22f2a2e98a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj">
+      <Name>PerfectShuffle.EventSourcing</Name>
+      <Project>{4f9159c3-062e-4cfc-8ccc-87a6c8265e61}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="..\.paket\paket.targets" />
   <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
       <ItemGroup>
         <Reference Include="EventStore.ClientAPI">
           <HintPath>..\packages\EventStore.Client\lib\net40\EventStore.ClientAPI.dll</HintPath>

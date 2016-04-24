@@ -2,12 +2,12 @@
 open PerfectShuffle.EventSourcing
 
 type private Msg<'TEvent, 'TState> =
-| Persist of EventWithMetadata<'TEvent>[] * AsyncReplyChannel<ReadModelState<'TState>>
+| Persist of EventWithMetadata<'TEvent>[] * AsyncReplyChannel<Choice<ReadModelState<'TState>,exn>>
 | ReadState of AsyncReplyChannel<ReadModelState<'TState>>
 | Exit
 
 type IEventProcessor<'TState, 'TEvent> =
-  abstract member Persist : EventWithMetadata<'TEvent>[] -> Async<ReadModelState<'TState>>
+  abstract member Persist : EventWithMetadata<'TEvent>[] -> Async<Choice<ReadModelState<'TState>, exn>>
   abstract member ExtendedState : unit -> Async<ReadModelState<'TState>>
   abstract member State : unit -> Async<'TState>
 
@@ -34,9 +34,13 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
             
             match r with
             | Store.WriteResult.Success ->
-              readModel.Apply(nextEventNumber, events)
-              let! result = readModel.CurrentStateAsync()
-              return Choice1Of2(result)
+              let readModelResult = readModel.Apply(nextEventNumber, events)
+              match readModelResult with
+              | Choice1Of2 (()) ->
+                let! result = readModel.CurrentStateAsync()
+                return Choice1Of2(result)
+              | Choice2Of2 e ->
+                return Choice2Of2 e
             | Store.WriteResult.ConcurrencyCheckFailed -> return! persistEvents events
             | Store.WriteResult.WriteException e -> return Choice2Of2(e)
         }
@@ -47,11 +51,8 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
         let! msg = inbox.Receive()
         match msg with        
         | Persist (events, replyChannel) ->
-
             let! r = persistEvents events
-            match r with
-            | Choice1Of2 state -> replyChannel.Reply state
-            | Choice2Of2 e -> raise e
+            replyChannel.Reply r
             return! loop()
         | ReadState replyChannel ->          
             let! state = readModel.CurrentStateAsync()
@@ -64,7 +65,7 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
 
   interface IEventProcessor<'TState, 'TEvent> with
     /// Applies a batch of events and persists them to disk
-    member this.Persist (events:EventWithMetadata<'TEvent>[]) =
+    member this.Persist (events:EventWithMetadata<'TEvent>[])=
       agent.PostAndAsyncReply(fun replyChannel -> Persist(events, replyChannel))
 
     member this.ExtendedState () =

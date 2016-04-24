@@ -3,7 +3,7 @@
 module MySampleApp =
 
   open PerfectShuffle.EventSourcing
-  open PerfectShuffle.EventSourcing.EventStore
+  
   open SampleApp.Domain
   open SampleApp.Events
   
@@ -12,7 +12,7 @@ module MySampleApp =
     with
       static member Zero = {Users = Map.empty}
 
-  let apply (state:State) (eventWithMetadata:EventWithMetadata<SampleApp.Events.DomainEvent>) =
+  let apply (state:State) (eventWithMetadata:EventWithMetadata<SampleApp.Events.DomainEvent>) : State =
     match eventWithMetadata.Event with
     | DomainEvent.UserCreated userInfo ->
       let newUser : User =
@@ -30,6 +30,8 @@ module MySampleApp =
   let getBootstrapEvents (readModel:IReadModel<State,DomainEvent>) =
       [||]
       |> Array.map (EventWithMetadata<_>.Wrap)
+
+  open PerfectShuffle.EventSourcing.EventStore
 
   let initialiseEventProcessor() =    
     let eventStoreEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 1113)
@@ -61,7 +63,7 @@ module MySampleApp =
 
     printf "Subscribing to events feed..."    
     let subscription = repository.Events.Subscribe(fun e ->      
-      readModel.Apply(e.EventNumber, [|e.Event|]))
+      readModel.Apply(e.EventNumber, [|e.Event|]) |> ignore<Choice<_,_>>)
     
     printfn "[OK]"
         

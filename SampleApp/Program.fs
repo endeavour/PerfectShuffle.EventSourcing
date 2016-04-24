@@ -16,12 +16,16 @@ let main argv =
     printfn "Applying events... %A" evts
     
     async {
-      let! currentState = eventProcessor.Persist evts      
-      let users = currentState.State.Users
-
-      printfn "Current users:"
-      for user in users do
-        printfn "%A" user.Value
+      let! persistResult = eventProcessor.Persist evts
+      match persistResult  with
+      | Choice1Of2 currentState ->
+        let users = currentState.State.Users
+          
+        printfn "Current users:"
+        for user in users do
+          printfn "%A" user.Value
+      | Choice2Of2 e ->
+        raise e
 
     } |> Async.RunSynchronously
 
