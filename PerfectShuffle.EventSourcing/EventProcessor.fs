@@ -1,13 +1,18 @@
 ﻿namespace PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing
+open PerfectShuffle.EventSourcing.Store
+
+type PersistenceFailure =
+| WriteFailure of WriteFailure
+| ReadModelException of exn
 
 type private Msg<'TEvent, 'TState> =
-| Persist of EventWithMetadata<'TEvent>[] * AsyncReplyChannel<Choice<ReadModelState<'TState>,exn>>
+| Persist of Changeset<'TEvent> * AsyncReplyChannel<Choice<ReadModelState<'TState>,PersistenceFailure>>
 | ReadState of AsyncReplyChannel<ReadModelState<'TState>>
 | Exit
 
 type IEventProcessor<'TState, 'TEvent> =
-  abstract member Persist : EventWithMetadata<'TEvent>[] -> Async<Choice<ReadModelState<'TState>, exn>>
+  abstract member Persist : Changeset<'TEvent> -> Async<Choice<ReadModelState<'TState>, PersistenceFailure>>
   abstract member ExtendedState : unit -> Async<ReadModelState<'TState>>
   abstract member State : unit -> Async<'TState>
 
@@ -25,24 +30,22 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
   let agent =
     MailboxProcessor<_>.Start(fun inbox ->
       
-      let rec persistEvents events =
+      let rec persistEvents (changeset:Changeset<_>) : Async<Choice<ReadModelState<'TState>, PersistenceFailure>>  =
         async {
-            let! currentState = readModel.CurrentStateAsync()
-            let nextEventNumber = currentState.NextEventNumber
-            let concurrency = Store.WriteConcurrencyCheck.NewEventNumber(nextEventNumber)
-            let! r = store.Save events concurrency
+            let concurrency = Store.WriteConcurrencyCheck.NewEventNumber(changeset.StreamVersion - 1)
+            let! r = store.Save changeset.Events concurrency
             
             match r with
-            | Store.WriteResult.Success ->
-              let readModelResult = readModel.Apply(nextEventNumber, events)
+            | Choice1Of2 (()) ->
+              let readModelResult = readModel.Apply changeset
               match readModelResult with
               | Choice1Of2 (()) ->
                 let! result = readModel.CurrentStateAsync()
                 return Choice1Of2(result)
               | Choice2Of2 e ->
-                return Choice2Of2 e
-            | Store.WriteResult.ConcurrencyCheckFailed -> return! persistEvents events
-            | Store.WriteResult.WriteException e -> return Choice2Of2(e)
+                return Choice2Of2 (ReadModelException e)
+            | Choice2Of2 reason ->
+              return Choice2Of2 (WriteFailure reason)
         }
 
       let rec loop() =
@@ -50,8 +53,8 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
         
         let! msg = inbox.Receive()
         match msg with        
-        | Persist (events, replyChannel) ->
-            let! r = persistEvents events
+        | Persist (changeset, replyChannel) ->
+            let! r = persistEvents changeset
             replyChannel.Reply r
             return! loop()
         | ReadState replyChannel ->          
@@ -65,8 +68,8 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
 
   interface IEventProcessor<'TState, 'TEvent> with
     /// Applies a batch of events and persists them to disk
-    member this.Persist (events:EventWithMetadata<'TEvent>[])=
-      agent.PostAndAsyncReply(fun replyChannel -> Persist(events, replyChannel))
+    member this.Persist (changeset:Changeset<'TEvent>)=
+      agent.PostAndAsyncReply(fun replyChannel -> Persist(changeset, replyChannel))
 
     member this.ExtendedState () =
       agent.PostAndAsyncReply(fun replyChannel -> ReadState(replyChannel))

@@ -12,12 +12,6 @@ module EventStore =
   open System.Net
   open Microsoft.WindowsAzure.Storage
   open Microsoft.WindowsAzure.Storage.Table
-//  /// Creates and opens an EventStore connection.
-//  let Connect (storageUri : StorageUri, credentials : Auth.StorageCredentials) =   
-//      let credentials = Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
-//      let cloudStorageAccount = CloudStorageAccount(credentials, true)
-//      let tableClient = cloudStorageAccount.CreateCloudTableClient()
-//      tableClient
 
 [<CLIMutable>]
 type EventEntity =
@@ -39,7 +33,8 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
   let table = tableClient.GetTableReference(tableName)
   
   // TODO: Remove this line from production
-  do table.CreateIfNotExists() |> ignore
+  // do table.DeleteIfExists() |> ignore
+  // do table.Create() |> ignore
   
   let partition = Partition(table, partitionName)
 
@@ -83,6 +78,7 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
 
   let deserializedEventStream() =
     rawEventStream()
+    //TODO: BufferBy version #
     |> AsyncSeq.map (fun x ->
       let serializedEvent : Serialization.SerializedEvent =
         { 
@@ -90,14 +86,15 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
           Payload = x.Payload
         }
       let evt = serializer.Deserialize(serializedEvent)
-      { EventNumber = x.Version; Event = evt})
+      //TODO : this isn't really a batch as it only contains 1 event, we want the readmodel state to be atomic.
+      { StreamVersion = x.Version; Events = [|evt|]})
     
 
   let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'TEvent>[]) = async {
       
       if evts.Length = 0
         then
-          return WriteResult.Success
+          return Choice1Of2 (())
         else
           let batchId = Guid.NewGuid()
 
@@ -126,23 +123,23 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
               async {
                 try
                   let! result = Stream.WriteAsync(partition, 0, eventsData) |> Async.AwaitTask              
-                  return WriteResult.Success              
+                  return Choice1Of2 (())         
                 with
                   | :? ConcurrencyConflictException as e ->
-                    return WriteResult.ConcurrencyCheckFailed
+                    return WriteFailure.ConcurrencyCheckFailed |> Choice2Of2
                   |e ->
-                    return WriteResult.WriteException e            
+                    return WriteFailure.WriteException e |> Choice2Of2    
               }
             | NewEventNumber n ->
               async {
                 try
-                  let! result = Stream.WriteAsync(partition, n - 1, eventsData) |> Async.AwaitTask              
-                  return WriteResult.Success              
+                  let! result = Stream.WriteAsync(partition, n, eventsData) |> Async.AwaitTask              
+                  return Choice1Of2 (())                
                 with
                   | :? ConcurrencyConflictException as e ->
-                    return WriteResult.ConcurrencyCheckFailed
+                    return WriteFailure.ConcurrencyCheckFailed |> Choice2Of2
                   |e ->
-                    return WriteResult.WriteException e            
+                    return WriteFailure.WriteException e |> Choice2Of2
               }
             | Any ->
               async {
@@ -154,12 +151,12 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
                     | false, _ -> Stream(partition)
 
                   let! result = Stream.WriteAsync(stream, eventsData) |> Async.AwaitTask              
-                  return WriteResult.Success              
+                  return Choice1Of2 (())       
                 with
                   | :? ConcurrencyConflictException as e ->
-                    return WriteResult.ConcurrencyCheckFailed
+                    return WriteFailure.ConcurrencyCheckFailed |> Choice2Of2
                   |e ->
-                    return WriteResult.WriteException e            
+                    return WriteFailure.WriteException e |> Choice2Of2           
               }
 
           let! result = write                

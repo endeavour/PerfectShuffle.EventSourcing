@@ -15,15 +15,14 @@ module Store =
   /// Any other integer value	The event number that you expect the stream to currently be at.
   | NewEventNumber of int
 
-  type WriteResult =
-  | Success
+  type WriteFailure =
   | ConcurrencyCheckFailed
   | WriteException of exn
 
-  type NewEventArgs<'TEvent> = {EventNumber : int; Event : EventWithMetadata<'TEvent>}
+  type WriteResult = Choice<unit, WriteFailure>
 
   type IEventRepository<'TEvent> =
-    abstract member Events : IObservable<NewEventArgs<'TEvent>>
+    abstract member Events : IObservable<Changeset<'TEvent>>
     abstract member Save : events:EventWithMetadata<'TEvent>[] -> WriteConcurrencyCheck -> Async<WriteResult>
 
  

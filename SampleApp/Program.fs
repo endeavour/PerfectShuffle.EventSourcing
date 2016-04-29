@@ -9,15 +9,25 @@ let main argv =
     let evts =
        let email = sprintf "%d@test.com" System.DateTime.UtcNow.Ticks
        [|         
-         SampleApp.Events.UserCreated({Name="James"; Email=email; Password="letmein"; Company = "Acme Corp"})
-         |> EventWithMetadata<_>.Wrap
+         for i = 1 to 25 do
+           let name = sprintf "James %d" i
+           yield             
+             SampleApp.Events.UserCreated({Name = name; Email=email; Password="letmein"; Company = "Acme Corp"})
+             |> EventWithMetadata<_>.Wrap
        |]
 
     printfn "Applying events... %A" evts
     
     async {
-      do! Async.Sleep 2000
-      let! persistResult = eventProcessor.Persist evts
+      // TODO: fix hack
+      do! Async.Sleep 1000 // hack to allow enough time for existing events to be retrieved
+      let! state = eventProcessor.ExtendedState()
+      let streamVersion =
+        match state.NextExpectedStreamVersion with
+        | None -> 1
+        | Some n -> n
+      let changeset = { StreamVersion = streamVersion; Events = evts }
+      let! persistResult = eventProcessor.Persist changeset
       match persistResult  with
       | Choice1Of2 currentState ->
         let users = currentState.State.Users
@@ -26,7 +36,7 @@ let main argv =
         for user in users do
           printfn "%A" user.Value
       | Choice2Of2 e ->
-        raise e
+        printfn "Something went terribly wrong: %A" e
 
     } |> Async.RunSynchronously
 

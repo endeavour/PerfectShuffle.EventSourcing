@@ -31,11 +31,11 @@ module MySampleApp =
       [||]
       |> Array.map (EventWithMetadata<_>.Wrap)
 
-  open PerfectShuffle.EventSourcing.EventStore
+//  open PerfectShuffle.EventSourcing.EventStore
 
   let initialiseEventProcessor() =    
-    let eventStoreEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 1113)
-    let eventStoreConnection = EventStore.Connect eventStoreEndpoint
+//    let eventStoreEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 1113)
+//    let eventStoreConnection = EventStore.Connect eventStoreEndpoint
 
     let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply) :> IReadModel<_,_>            
     
@@ -62,16 +62,16 @@ module MySampleApp =
         repository.Save bootstrapEvents Store.WriteConcurrencyCheck.NoStream
         |> Async.RunSynchronously
       match bootstrapResult with
-      | Store.WriteResult.ConcurrencyCheckFailed ->
+      | Store.WriteResult.Choice2Of2 _ ->
         printfn "Stream already exists, skipping bootstrap events."
-      | Store.Success ->
+      | Store.WriteResult.Choice1Of2 _ ->
         printfn "Boostrapped"
-      | Store.WriteException e -> raise e
 
     printf "Subscribing to events feed..."    
-    let subscription = repository.Events.Subscribe(fun e ->      
-      printfn "Event %d / %A received from store" e.EventNumber e.Event.Id
-      readModel.Apply(e.EventNumber, [|e.Event|]) |> ignore<Choice<_,_>>)
+    let subscription = repository.Events.Subscribe(fun changeset ->      
+      readModel.Apply(changeset) |> ignore<Choice<_,_>>
+      for e in changeset.Events do
+        printfn "Event %d / %A received from store" changeset.StreamVersion e.Id)
     
     printfn "[OK]"
         
