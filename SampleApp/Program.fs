@@ -9,7 +9,7 @@ let main argv =
     let evts =
        let email = sprintf "%d@test.com" System.DateTime.UtcNow.Ticks
        [|         
-         for i = 1 to 25 do
+         for i = 1 to 10 do
            let name = sprintf "James %d" i
            yield             
              SampleApp.Events.UserCreated({Name = name; Email=email; Password="letmein"; Company = "Acme Corp"})

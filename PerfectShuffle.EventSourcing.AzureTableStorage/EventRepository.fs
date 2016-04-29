@@ -101,8 +101,8 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
           let eventsData =
             evts
             |> Seq.map (fun e ->
-              let serializedEvent = serializer.Serialize e
-              Guid.NewGuid(), serializedEvent.TypeName, serializedEvent.Payload
+              let serializedEvent = serializer.Serialize e              
+              e.Id, serializedEvent.TypeName, serializedEvent.Payload
             )
             |> Seq.map (fun (guid, typeName, payload) ->
               let props =
@@ -113,7 +113,7 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
                 |]
                 |> dict
                 |> EventProperties.From          
-              EventData(EventId.From(batchId),  props)
+              EventData(EventId.From(guid),  props)
             )
             |> Seq.toArray
 
