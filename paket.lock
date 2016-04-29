@@ -21,6 +21,8 @@ NUGET
       Newtonsoft.Json (>= 6.0.8)
       NodaTime (>= 1.3)
     NodaTime (1.3.2)
+    Streamstone (0.9.8)
+      WindowsAzure.Storage (>= 6.1)
     System.Spatial (5.7)
     WindowsAzure.Storage (7.0)
       Microsoft.Azure.KeyVault.Core (>= 1.0)

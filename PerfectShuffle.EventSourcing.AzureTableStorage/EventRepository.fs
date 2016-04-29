@@ -6,43 +6,30 @@ open PerfectShuffle.EventSourcing.Store
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open FSharp.Control
+open Streamstone
 
 module EventStore =
   open System.Net
   open Microsoft.WindowsAzure.Storage
   open Microsoft.WindowsAzure.Storage.Table
-  /// Creates and opens an EventStore connection.
-  let Connect (storageUri : StorageUri, credentials : Auth.StorageCredentials) =   
-      let credentials = Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
-      let cloudStorageAccount = CloudStorageAccount(credentials, true)
-      let tableClient = cloudStorageAccount.CreateCloudTableClient()
-      tableClient
+//  /// Creates and opens an EventStore connection.
+//  let Connect (storageUri : StorageUri, credentials : Auth.StorageCredentials) =   
+//      let credentials = Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
+//      let cloudStorageAccount = CloudStorageAccount(credentials, true)
+//      let tableClient = cloudStorageAccount.CreateCloudTableClient()
+//      tableClient
 
-type EventTypeWrapper(tableEntity:DynamicTableEntity) =
-
-  member this.EventId
-    with get() = tableEntity.["EventId"].GuidValue
-    and set value = tableEntity.["EventId"].GuidValue <- value
-
-  member this.EventNumber
-    with get() = tableEntity.["EventNumber"].Int32Value
-    and set value = tableEntity.["EventNumber"].Int32Value <- value
-
-  member this.EventType
-    with get() = tableEntity.["EventType"].StringValue
-    and set value = tableEntity.["EventType"].StringValue <- value
-
-  member this.Payload
-    with get() = tableEntity.["Payload"].StringValue
-    and set value = tableEntity.["Payload"].StringValue <- value
-
-  member this.EventTimestamp
-    with get() = tableEntity.["EventTimestamp"].DateTime
-    and set value = tableEntity.["EventTimestamp"].DateTime <- value
-
+[<CLIMutable>]
+type EventEntity =
+  {    
+    Id : Guid
+    TypeName : string
+    Payload : byte[]
+    Version : int
+  }
 
 /// Implementation of an event repository that connects to Azure Table Storage
-type EventRepository<'TEvent>(azureStorageAccountName:string, storageCredentials:Auth.StorageCredentials, tableName:string, serializer : Serialization.IEventSerializer<'TEvent>) =
+type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableName:string, partitionName:string, serializer : Serialization.IEventSerializer<'TEvent>) =
     
   let tableClient =
     let cloudStorageAccount = CloudStorageAccount(storageCredentials, true)
@@ -50,6 +37,11 @@ type EventRepository<'TEvent>(azureStorageAccountName:string, storageCredentials
     tableClient
 
   let table = tableClient.GetTableReference(tableName)
+  
+  // TODO: Remove this line from production
+  do table.CreateIfNotExists() |> ignore
+  
+  let partition = Partition(table, partitionName)
 
   let getTableRows () = asyncSeq {
     
@@ -65,105 +57,118 @@ type EventRepository<'TEvent>(azureStorageAccountName:string, storageCredentials
         yield r
   }
 
-  let load() =
-    getTableRows()
+  // TODO: Continue reading stream forever. If we get to end of stream wait some amount of time then try reading again (exponential back-off with a cap?)
+  let rawEventStream() =    
+    
+    asyncSeq {
+      let mutable slice = None
+      let mutable lastEvent = None
+      printfn "Reading first slice"
+      let! firstSlice = Stream.ReadAsync<EventEntity>(partition, startVersion = 1, sliceSize = 100) |> Async.AwaitTask      
+      for evt in firstSlice.Events do
+        lastEvent <- Some evt
+        yield evt
+      slice <- Some firstSlice
+      while not (slice.Value.IsEndOfStream) do
+        let nextSliceStart =
+          match lastEvent with
+          | None -> 1
+          | Some lastEvent -> lastEvent.Version + 1
+        printfn "Reading next slice"
+        let! nextSlice = Stream.ReadAsync<EventEntity>(partition, startVersion = nextSliceStart, sliceSize = 100) |> Async.AwaitTask
+        for evt in nextSlice.Events do
+          lastEvent <- Some evt
+          yield evt
+    }
+
+  let deserializedEventStream() =
+    rawEventStream()
     |> AsyncSeq.map (fun x ->
-      let wrapped = EventTypeWrapper x
-      serializer.Deserialize {TypeName = wrapped.EventType; Payload = System.Text.Encoding.UTF8.GetBytes wrapped.Payload}
-      )
+      let serializedEvent : Serialization.SerializedEvent =
+        { 
+          TypeName = x.TypeName
+          Payload = x.Payload
+        }
+      let evt = serializer.Deserialize(serializedEvent)
+      { EventNumber = x.Version; Event = evt})
+    
 
   let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'TEvent>[]) = async {
-      let eventsData =
-        evts |> Array.map (fun e ->
-          let serializedEvent = serializer.Serialize e
-          // TODO: Maybe the serializer should return text instead?
-          let jsonPayload = System.Text.Encoding.UTF8.GetString serializedEvent.Payload
-          Guid.NewGuid(), serializedEvent.TypeName, serializedEvent.Payload
-        )
+      
+      if evts.Length = 0
+        then
+          return WriteResult.Success
+        else
+          let batchId = Guid.NewGuid()
 
-//      let expectedVersion =
-//        match concurrencyCheck with
-//        | Any -> ExpectedVersion.Any
-//        | NoStream -> ExpectedVersion.NoStream
-//        | EmptyStream -> ExpectedVersion.EmptyStream
-//        | NewEventNumber n -> n - 1
-
-      let saveEvents (firstEventNumber : Option<int>) =
-        let batchOperation : TableBatchOperation =
-          let operations =
+          let eventsData =
             evts
-            |> Seq.mapi (fun i evt ->
-              let entity = DynamicTableEntity()
-              let wrapped = EventTypeWrapper(entity)
-              wrapped.EventId <- Nullable(evt.Id)
-              wrapped.EventNumber <- firstEventNumber + i
-              wrapped.EventType <- evt.Timestamp
-              )
-          let op = TableBatchOperation()
-          seq {
-            yield TableOperation.Insert entity
-          } |> Seq.iter op.Add
+            |> Seq.map (fun e ->
+              let serializedEvent = serializer.Serialize e
+              Guid.NewGuid(), serializedEvent.TypeName, serializedEvent.Payload
+            )
+            |> Seq.map (fun (guid, typeName, payload) ->
+              let props =
+                [|
+                  "Id", EntityProperty.GeneratePropertyForGuid(Nullable(guid))
+                  "TypeName", EntityProperty.GeneratePropertyForString(typeName)
+                  "Payload", EntityProperty.GeneratePropertyForByteArray(payload)
+                |]
+                |> dict
+                |> EventProperties.From          
+              EventData(EventId.From(batchId),  props)
+            )
+            |> Seq.toArray
 
-        table.ExecuteBatchAsync(operation) |> Async.AwaitTask
-        table.ExecuteAsync()
-        async {
-          table
-        }
+          let write =
+            match concurrencyCheck with
+            | NoStream | EmptyStream | NewEventNumber 0 ->
+              async {
+                try
+                  let! result = Stream.WriteAsync(partition, 0, eventsData) |> Async.AwaitTask              
+                  return WriteResult.Success              
+                with
+                  | :? ConcurrencyConflictException as e ->
+                    return WriteResult.ConcurrencyCheckFailed
+                  |e ->
+                    return WriteResult.WriteException e            
+              }
+            | NewEventNumber n ->
+              async {
+                try
+                  let! result = Stream.WriteAsync(partition, n - 1, eventsData) |> Async.AwaitTask              
+                  return WriteResult.Success              
+                with
+                  | :? ConcurrencyConflictException as e ->
+                    return WriteResult.ConcurrencyCheckFailed
+                  |e ->
+                    return WriteResult.WriteException e            
+              }
+            | Any ->
+              async {
+                try
+                  let! stream = Stream.TryOpenAsync(partition) |> Async.AwaitTask
+                  let stream =
+                    match stream.Found, stream.Stream with
+                    | true, stream -> stream
+                    | false, _ -> Stream(partition)
 
-      let foo =
-        match concurrencyCheck with
-        | NoStream ->
-          async {
-            let! tableExists = table.ExistsAsync() |> Async.AwaitTask
-            if tableExists
-              then
-                return failwith "Table should not exist already"
-              else
-                let! created = table.CreateAsync() |> Async.AwaitTask
-                return failwith "DIE"
-          }
-        | EmptyStream | NewEventNumber 0 ->
-        | NewEventNumber n ->
+                  let! result = Stream.WriteAsync(stream, eventsData) |> Async.AwaitTask              
+                  return WriteResult.Success              
+                with
+                  | :? ConcurrencyConflictException as e ->
+                    return WriteResult.ConcurrencyCheckFailed
+                  |e ->
+                    return WriteResult.WriteException e            
+              }
 
-      let! result =
-        conn.AppendToStreamAsync(streamId, expectedVersion, eventsData)
-        |> Async.AwaitTask
-        |> Async.Catch
-        
-      let rec getInnerException (exn:Exception) =
-        match exn with
-        | :? System.AggregateException as e ->
-          if e.InnerExceptions.Count = 1
-            then getInnerException e.InnerException
-            else exn
-        | e -> e
-        
-      let r =
-        match result with
-        | Choice.Choice1Of2(writeResult) -> Success
-        | Choice.Choice2Of2(exn) ->
-          match getInnerException exn with
-          | :? EventStore.ClientAPI.Exceptions.WrongExpectedVersionException -> ConcurrencyCheckFailed
-          | e -> WriteException(e)            
-      return r
+          let! result = write                
+          return result
   }
 
   let eventsObservable =
-
-    {new System.IObservable<_> with
-      member __.Subscribe(observer) =
-
-        let f = System.Action<_, ResolvedEvent>(fun _ evt ->
-            let unpacked = unpack evt
-            let eventNumber = evt.OriginalEventNumber
-            let evt = {EventNumber = eventNumber; Event = unpacked}
-            observer.OnNext evt              
-          )
-      
-        let subscription = conn.SubscribeToStreamFrom(streamId, EventStore.ClientAPI.StreamCheckpoint.StreamStart, false, f)
-
-        {new IDisposable with member __.Dispose() = subscription.Stop()}                
-      }      
+    deserializedEventStream()
+    |> AsyncSeq.toObservable     
 
   interface IEventRepository<'TEvent> with
     member __.Events = eventsObservable

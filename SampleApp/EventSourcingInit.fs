@@ -45,9 +45,16 @@ module MySampleApp =
 
     let serializer = Serialization.CreateDefaultSerializer<DomainEvent>()
 
-    let repository = EventRepository<DomainEvent>(eventStoreConnection, "SampleAppEvents", serializer) :> Store.IEventRepository<_>
+//    let repository = EventRepository<DomainEvent>(eventStoreConnection, "SampleAppEvents", serializer) :> Store.IEventRepository<_>    
+//    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>  
+
+    let repository =
+      let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
+      PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
+    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>
+
+
     
-    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>  
 
     let initialBootstrapResult =
       let bootstrapEvents = getBootstrapEvents readModel
@@ -63,6 +70,7 @@ module MySampleApp =
 
     printf "Subscribing to events feed..."    
     let subscription = repository.Events.Subscribe(fun e ->      
+      printfn "Event %d / %A received from store" e.EventNumber e.Event.Id
       readModel.Apply(e.EventNumber, [|e.Event|]) |> ignore<Choice<_,_>>)
     
     printfn "[OK]"

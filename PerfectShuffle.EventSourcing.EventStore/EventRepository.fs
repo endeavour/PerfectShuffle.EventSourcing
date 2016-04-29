@@ -20,11 +20,11 @@ type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, seria
   let unpack (e:ResolvedEvent) =      
     serializer.Deserialize({TypeName = e.Event.EventType; Payload = e.Event.Data})
     
-  let load () = async {
-    let! eventsSlice = conn.ReadStreamEventsForwardAsync(streamId, 0, Int32.MaxValue, false) |> Async.AwaitTask
-    return
-      eventsSlice.Events |> Seq.map unpack
-  }
+//  let load () = async {
+//    let! eventsSlice = conn.ReadStreamEventsForwardAsync(streamId, 0, Int32.MaxValue, false) |> Async.AwaitTask
+//    return
+//      eventsSlice.Events |> Seq.map unpack
+//  }
 
   let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'TEvent>[]) = async {
       let eventsData =

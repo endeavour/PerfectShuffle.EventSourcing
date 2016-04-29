@@ -16,6 +16,7 @@ let main argv =
     printfn "Applying events... %A" evts
     
     async {
+      do! Async.Sleep 2000
       let! persistResult = eventProcessor.Persist evts
       match persistResult  with
       | Choice1Of2 currentState ->

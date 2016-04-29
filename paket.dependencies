@@ -8,3 +8,4 @@ nuget Newtonsoft.Json.FSharp
 nuget FSharpx.Collections
 nuget WindowsAzure.Storage
 nuget FSharp.Control.AsyncSeq
+nuget Streamstone

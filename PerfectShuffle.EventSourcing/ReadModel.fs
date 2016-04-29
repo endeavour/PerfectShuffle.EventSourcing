@@ -67,7 +67,8 @@
             let newState = apply internalState firstEvent
             loop (nextEventNumber+1) remainingEvents newState (appliedEvents.Conj firstEvent)
 
-        loop 0 [] initialState PersistentVector.empty
+        // TODO: This is zero-based for GetEventStore and 1-based for Azure Table Storage. Make it configurable.
+        loop 1 [] initialState PersistentVector.empty
         )
 
     interface IReadModel<'TState, 'TEvent> with  
