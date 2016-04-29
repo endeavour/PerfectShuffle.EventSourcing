@@ -33,8 +33,8 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
   let table = tableClient.GetTableReference(tableName)
   
   // TODO: Remove this line from production
-  // do table.DeleteIfExists() |> ignore
-  // do table.Create() |> ignore
+//  do table.DeleteIfExists() |> ignore
+//  do table.Create() |> ignore
   
   let partition = Partition(table, partitionName)
 
@@ -54,27 +54,27 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
 
   // TODO: Continue reading stream forever. If we get to end of stream wait some amount of time then try reading again (exponential back-off with a cap?)
   let rawEventStream() =    
-    
-    asyncSeq {
-      let mutable slice = None
-      let mutable lastEvent = None
-      printfn "Reading first slice"
-      let! firstSlice = Stream.ReadAsync<EventEntity>(partition, startVersion = 1, sliceSize = 100) |> Async.AwaitTask      
-      for evt in firstSlice.Events do
-        lastEvent <- Some evt
-        yield evt
-      slice <- Some firstSlice
-      while not (slice.Value.IsEndOfStream) do
-        let nextSliceStart =
-          match lastEvent with
-          | None -> 1
-          | Some lastEvent -> lastEvent.Version + 1
-        printfn "Reading next slice"
-        let! nextSlice = Stream.ReadAsync<EventEntity>(partition, startVersion = nextSliceStart, sliceSize = 100) |> Async.AwaitTask
-        for evt in nextSlice.Events do
-          lastEvent <- Some evt
+    let sliceSize = 1
+    let rec rawEventStreamAux startVersion =
+
+      asyncSeq {
+        //printfn "Reading from version %d" startVersion
+        let! slice = Stream.ReadAsync<EventEntity>(partition, startVersion = startVersion, sliceSize = sliceSize) |> Async.AwaitTask      
+        printfn "READING VERSION %d" startVersion
+        for evt in slice.Events do
+          printfn "\tREAD EVT: %d %A" evt.Version evt.Id
           yield evt
+        
+        match slice.Events |> Array.tryLast with
+        | None ->
+          ()
+        | Some evt ->
+          if slice.IsEndOfStream
+            then () //TODO: Sleep and retry?
+            else
+              yield! rawEventStreamAux (evt.Version + 1)
     }
+    rawEventStreamAux 1
 
   let deserializedEventStream() =
     rawEventStream()
@@ -86,15 +86,14 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
           Payload = x.Payload
         }
       let evt = serializer.Deserialize(serializedEvent)
-      //TODO : this isn't really a batch as it only contains 1 event, we want the readmodel state to be atomic.
-      { StreamVersion = x.Version; Events = [|evt|]})
+      { StartVersion = x.Version; Events = [|evt|]})
     
 
-  let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'TEvent>[]) = async {
-      
+  let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'TEvent>[]) : Async<WriteResult> =
+    async {      
       if evts.Length = 0
         then
-          return Choice1Of2 (())
+          return Choice2Of2 (WriteFailure.NoItems)
         else
           let batchId = Guid.NewGuid()
 
@@ -123,7 +122,7 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
               async {
                 try
                   let! result = Stream.WriteAsync(partition, 0, eventsData) |> Async.AwaitTask              
-                  return Choice1Of2 (())         
+                  return Choice1Of2 (StreamVersion (result.Stream.Version))
                 with
                   | :? ConcurrencyConflictException as e ->
                     return WriteFailure.ConcurrencyCheckFailed |> Choice2Of2
@@ -134,7 +133,7 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
               async {
                 try
                   let! result = Stream.WriteAsync(partition, n, eventsData) |> Async.AwaitTask              
-                  return Choice1Of2 (())                
+                  return Choice1Of2 (StreamVersion (result.Stream.Version))                   
                 with
                   | :? ConcurrencyConflictException as e ->
                     return WriteFailure.ConcurrencyCheckFailed |> Choice2Of2
@@ -151,7 +150,7 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
                     | false, _ -> Stream(partition)
 
                   let! result = Stream.WriteAsync(stream, eventsData) |> Async.AwaitTask              
-                  return Choice1Of2 (())       
+                  return Choice1Of2 (StreamVersion (result.Stream.Version))       
                 with
                   | :? ConcurrencyConflictException as e ->
                     return WriteFailure.ConcurrencyCheckFailed |> Choice2Of2

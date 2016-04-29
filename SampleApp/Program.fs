@@ -9,11 +9,11 @@ let main argv =
     let evts =
        let email = sprintf "%d@test.com" System.DateTime.UtcNow.Ticks
        [|         
-         for i = 1 to 10 do
-           let name = sprintf "James %d" i
-           yield             
-             SampleApp.Events.UserCreated({Name = name; Email=email; Password="letmein"; Company = "Acme Corp"})
-             |> EventWithMetadata<_>.Wrap
+//         for i = 1 to 10 do
+//           let name = sprintf "James %d" i
+//           yield             
+//             SampleApp.Events.UserCreated({Name = name; Email=email; Password="letmein"; Company = "Acme Corp"})
+//             |> EventWithMetadata<_>.Wrap
        |]
 
     printfn "Applying events... %A" evts
@@ -26,8 +26,8 @@ let main argv =
         match state.NextExpectedStreamVersion with
         | None -> 1
         | Some n -> n
-      let changeset = { StreamVersion = streamVersion; Events = evts }
-      let! persistResult = eventProcessor.Persist changeset
+      let batch = { StartVersion = streamVersion; Events = evts }
+      let! persistResult = eventProcessor.Persist batch
       match persistResult  with
       | Choice1Of2 currentState ->
         let users = currentState.State.Users

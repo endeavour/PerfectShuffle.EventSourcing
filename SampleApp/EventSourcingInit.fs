@@ -53,9 +53,6 @@ module MySampleApp =
       PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
     let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>
 
-
-    
-
     let initialBootstrapResult =
       let bootstrapEvents = getBootstrapEvents readModel
       let bootstrapResult =
@@ -68,10 +65,10 @@ module MySampleApp =
         printfn "Boostrapped"
 
     printf "Subscribing to events feed..."    
-    let subscription = repository.Events.Subscribe(fun changeset ->      
-      readModel.Apply(changeset) |> ignore<Choice<_,_>>
-      for e in changeset.Events do
-        printfn "Event %d / %A received from store" changeset.StreamVersion e.Id)
+    let subscription = repository.Events.Subscribe(fun batch ->      
+      readModel.Apply(batch) |> ignore<Choice<_,_>>
+      for e in batch.Events do
+        printfn "Event %d / %A received from store" batch.StartVersion e.Id)
     
     printfn "[OK]"
         

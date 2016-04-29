@@ -10,22 +10,22 @@
       with
         static member Wrap evt = {Id = System.Guid.NewGuid(); Timestamp = System.DateTime.UtcNow; Event = evt}
 
-  type Changeset<'TEvent> =
+  type Batch<'TEvent> =
     {
-      StreamVersion : int
+      StartVersion : int
       Events : EventWithMetadata<'TEvent>[]
     }
  
   type ReadModelState<'TState> = {State:'TState; NextExpectedStreamVersion : Option<int>}
 
   type IReadModel<'TState, 'TEvent> =
-    abstract member Apply : Changeset<'TEvent> -> Choice<unit,exn>
+    abstract member Apply : Batch<'TEvent> -> Choice<unit,exn>
     abstract member CurrentState : unit -> ReadModelState<'TState>
     abstract member CurrentStateAsync : unit -> Async<ReadModelState<'TState>>
     abstract member Error : IEvent<Handler<exn>, exn>
 
   type private ReadModelMsg<'TExternalState, 'TEvent> =
-    | Update of Changeset<'TEvent> * AsyncReplyChannel<Choice<unit,exn>>
+    | Update of Batch<'TEvent> * AsyncReplyChannel<Choice<unit,exn>>
     | CurrentState of AsyncReplyChannel<ReadModelState<'TExternalState>>
 
   exception ReadModelException of string
@@ -39,21 +39,23 @@
           let! msg = inbox.Receive()
             
           match msg with
-          | Update(changeset, replyChannel) ->
+          | Update(batch, replyChannel) ->
             match nextExpectedStreamVersion with
-            | Some(nextStreamVersion) when changeset.StreamVersion <> nextStreamVersion ->
+            | Some(nextStreamVersion) when batch.StartVersion <> nextStreamVersion ->
               replyChannel.Reply (Choice2Of2 <| ReadModelException "Wrong stream version")
+              return! loop nextExpectedStreamVersion internalState
             | None | Some _ ->
               replyChannel.Reply (Choice1Of2 ()) 
                 
               let newState =
-                changeset.Events
+                batch.Events
                 |> Seq.fold apply internalState
 
-              for evt in changeset.Events do
-                printfn "Readmodel applying event %d / %A" changeset.StreamVersion evt.Id
+              for evt in batch.Events do
+                printfn "Readmodel applying event %d / %A" batch.StartVersion evt.Id
+                ()
 
-              return! loop (Some(changeset.StreamVersion + 1)) newState
+              return! loop (Some(batch.StartVersion + batch.Events.Length)) newState
           | CurrentState replyChannel ->
               replyChannel.Reply {State = internalState; NextExpectedStreamVersion = nextExpectedStreamVersion}
               return! loop nextExpectedStreamVersion internalState                    
@@ -63,7 +65,7 @@
         )
 
     interface IReadModel<'TState, 'TEvent> with  
-      member __.Apply changeset = agent.PostAndReply (fun reply -> Update(changeset, reply))
+      member __.Apply batch = agent.PostAndReply (fun reply -> Update(batch, reply))
       member __.CurrentState() = agent.PostAndReply(fun reply -> CurrentState(reply))
       member __.CurrentStateAsync() = agent.PostAndAsyncReply(fun reply -> CurrentState(reply))
       member __.Error = agent.Error
