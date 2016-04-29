@@ -51,9 +51,8 @@
                 batch.Events
                 |> Seq.fold apply internalState
 
-              for evt in batch.Events do
-                printfn "Readmodel applying event %d / %A" batch.StartVersion evt.Id
-                ()
+//              for evt in batch.Events do
+//                printfn "Readmodel applying event %d / %A" batch.StartVersion evt.Id
 
               return! loop (Some(batch.StartVersion + batch.Events.Length)) newState
           | CurrentState replyChannel ->

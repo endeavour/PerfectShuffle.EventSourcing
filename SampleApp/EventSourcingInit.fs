@@ -50,8 +50,9 @@ module MySampleApp =
 
     let repository =
       let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
-      PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
-    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>
+      new PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository<_>(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
+    
+    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository)
 
     let initialBootstrapResult =
       let bootstrapEvents = getBootstrapEvents readModel
@@ -72,4 +73,4 @@ module MySampleApp =
     
     printfn "[OK]"
         
-    subscription, evtProcessor
+    subscription, evtProcessor :> IEventProcessor<_,_>
