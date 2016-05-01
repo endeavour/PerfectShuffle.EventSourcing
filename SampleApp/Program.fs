@@ -1,10 +1,9 @@
-﻿open SampleApp.Commands
-open PerfectShuffle.EventSourcing
+﻿open PerfectShuffle.EventSourcing
 
 [<EntryPoint>]
 let main argv = 
 
-    let eventSubscription, eventProcessor = SampleApp.MySampleApp.initialiseEventProcessor()
+    let eventProcessor = SampleApp.MySampleApp.initialiseEventProcessor()
     
 //    let evts =
 //       let email = sprintf "%d@test.com" System.DateTime.UtcNow.Ticks
@@ -45,16 +44,23 @@ let main argv =
       async {
       let email = sprintf "%d@test.com" System.DateTime.UtcNow.Ticks
 
-      let evt =
-        SampleApp.Events.UserCreated({Name = (sprintf "Test %s" (System.DateTime.UtcNow.ToShortTimeString())); Email=email; Password="letmein"; Company = "Acme Corp"})
-        |> EventWithMetadata<_>.Wrap 
+      let evts =
+        [|
+        for i = 1 to 1 do
+          let name = sprintf "Test %d" i
+          yield
+            SampleApp.Events.UserCreated {Name = name; Email=email; Password="letmein"; Company = "Acme Corp"}
+            |> EventWithMetadata<_>.Wrap 
+        |]
+
+      let sw = System.Diagnostics.Stopwatch.StartNew()
 
       let! state = eventProcessor.ExtendedState()
       let streamVersion =
         match state.NextExpectedStreamVersion with
         | None -> 1
         | Some n -> n
-      let batch = { StartVersion = streamVersion; Events = [|evt|] }       
+      let batch = { StartVersion = streamVersion; Events = evts }       
       let! persistResult = eventProcessor.Persist batch
       match persistResult  with
       | Choice1Of2 currentState ->
@@ -65,7 +71,8 @@ let main argv =
           printfn "%A" user.Value
       | Choice2Of2 e ->
         printfn "Something went terribly wrong: %A" e
-      } |> Async.RunSynchronously
+      printfn "TIME to insert %d events: %dms" evts.Length sw.ElapsedMilliseconds
+      } |> Async.RunSynchronously      
 
     printfn "%A" argv
     0 // return an integer exit code

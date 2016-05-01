@@ -1,12 +1,14 @@
 ﻿namespace PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing.Store
+open FSharp.Control
 
 type PersistenceFailure =
 | WriteFailure of WriteFailure
 | ReadModelException of exn
 
 type private Msg<'TEvent, 'TState> =
+| ReadLatestFromStore
 | Persist of Batch<'TEvent> * AsyncReplyChannel<Choice<ReadModelState<'TState>,PersistenceFailure>>
 | ReadState of AsyncReplyChannel<ReadModelState<'TState>>
 | Exit
@@ -26,6 +28,13 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
       }
     loop()
   )
+
+  let readEventsFromStore() =
+    asyncSeq {
+      let! currentState = readModel.CurrentStateAsync()
+      let nextUnreadEvent = currentState.NextExpectedStreamVersion
+      yield! store.EventsFrom nextUnreadEvent      
+    }
  
   let agent =
     MailboxProcessor<_>.Start(fun inbox ->
@@ -45,6 +54,10 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
               | Choice2Of2 e ->
                 return Choice2Of2 (ReadModelException e)
             | Choice2Of2 reason ->
+              match reason with
+              | WriteFailure.ConcurrencyCheckFailed ->
+                inbox.Post ReadLatestFromStore
+              | WriteFailure.NoItems | WriteFailure.WriteException _ -> ()
               return Choice2Of2 (WriteFailure reason)
         }
 
@@ -59,12 +72,34 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
             return! loop()
         | ReadState replyChannel ->          
             let! state = readModel.CurrentStateAsync()
+            
             replyChannel.Reply state
             return! loop()
+        | ReadLatestFromStore ->
+          printfn "Reading latest"
+          do! readEventsFromStore() |> AsyncSeq.iter (fun item ->
+          printfn "Applying an item"
+          match readModel.Apply item with
+          | Choice1Of2 _ -> printfn "Applied batch %d" item.StartVersion
+          | Choice2Of2 e -> printfn "%A" e)  
+          printfn "Up to date"
+          return! loop()        
         | Exit -> ()        
         }
       loop()
       )
+  
+  do agent.Post ReadLatestFromStore
+    
+  // TODO: Move this retry policy out of here and make it more powerful (exponential backoff, triggers etc)
+  do
+    let rec timer() =
+      async {
+        agent.Post ReadLatestFromStore
+        do! Async.Sleep 1000
+        return! timer()
+      }
+    timer() |> Async.Start
 
   interface IEventProcessor<'TState, 'TEvent> with
     /// Applies a batch of events and persists them to disk

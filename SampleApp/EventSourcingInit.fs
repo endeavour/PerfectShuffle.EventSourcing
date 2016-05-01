@@ -27,10 +27,6 @@ module MySampleApp =
 
   exception EventProcessorException of exn
 
-  let getBootstrapEvents (readModel:IReadModel<State,DomainEvent>) =
-      [||]
-      |> Array.map (EventWithMetadata<_>.Wrap)
-
 //  open PerfectShuffle.EventSourcing.EventStore
 
   let initialiseEventProcessor() =    
@@ -53,24 +49,5 @@ module MySampleApp =
       new PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository<_>(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
     
     let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository)
-
-    let initialBootstrapResult =
-      let bootstrapEvents = getBootstrapEvents readModel
-      let bootstrapResult =
-        repository.Save bootstrapEvents Store.WriteConcurrencyCheck.NoStream
-        |> Async.RunSynchronously
-      match bootstrapResult with
-      | Store.WriteResult.Choice2Of2 _ ->
-        printfn "Stream already exists, skipping bootstrap events."
-      | Store.WriteResult.Choice1Of2 _ ->
-        printfn "Boostrapped"
-
-    printf "Subscribing to events feed..."    
-    let subscription = repository.Events.Subscribe(fun batch ->      
-      readModel.Apply(batch) |> ignore<Choice<_,_>>
-      for e in batch.Events do
-        printfn "Event %d / %A received from store" batch.StartVersion e.Id)
-    
-    printfn "[OK]"
         
-    subscription, evtProcessor :> IEventProcessor<_,_>
+    evtProcessor :> IEventProcessor<_,_>
