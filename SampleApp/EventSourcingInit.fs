@@ -33,11 +33,6 @@ module MySampleApp =
 //    let eventStoreEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 1113)
 //    let eventStoreConnection = EventStore.Connect eventStoreEndpoint
 
-    let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply) :> IReadModel<_,_>            
-    
-    readModel.Error.Subscribe(fun e ->
-      raise <| EventProcessorException(e)
-      ) |> ignore<System.IDisposable>
 
     let serializer = Serialization.CreateDefaultSerializer<DomainEvent>()
 
@@ -47,6 +42,12 @@ module MySampleApp =
     let repository =
       let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
       new PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository<_>(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
+
+    let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply, repository.FirstVersion) :> IReadModel<_,_>            
+    readModel.Error.Subscribe(fun e ->
+      raise <| EventProcessorException(e)
+      ) |> ignore<System.IDisposable>
+
     
     let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository)
         

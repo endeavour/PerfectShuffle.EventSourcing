@@ -178,13 +178,7 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
           return result
   }
 
-  let eventsObservable start =
-    let startIndex =
-      match start with
-      | None -> 1
-      | Some n -> n
-    deserializedEventStream startIndex
-
   interface IEventRepository<'TEvent> with
-    member __.EventsFrom index = eventsObservable index
+    member __.FirstVersion = 1
+    member __.EventsFrom index = deserializedEventStream index
     member __.Save evts concurrencyCheck = commit concurrencyCheck evts

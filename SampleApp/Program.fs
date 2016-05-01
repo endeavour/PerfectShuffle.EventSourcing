@@ -56,11 +56,7 @@ let main argv =
       let sw = System.Diagnostics.Stopwatch.StartNew()
 
       let! state = eventProcessor.ExtendedState()
-      let streamVersion =
-        match state.NextExpectedStreamVersion with
-        | None -> 1
-        | Some n -> n
-      let batch = { StartVersion = streamVersion; Events = evts }       
+      let batch = { StartVersion = state.NextExpectedStreamVersion; Events = evts }       
       let! persistResult = eventProcessor.Persist batch
       match persistResult  with
       | Choice1Of2 currentState ->

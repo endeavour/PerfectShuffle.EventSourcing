@@ -28,7 +28,8 @@ module Store =
 
   type IEventRepository<'TEvent> =
     // abstract member Events : IObservable<Batch<'TEvent>>
-    abstract member EventsFrom : version:Option<int> -> AsyncSeq<Batch<'TEvent>>
+    abstract member FirstVersion : int
+    abstract member EventsFrom : version:int -> AsyncSeq<Batch<'TEvent>>
     abstract member Save : events:EventWithMetadata<'TEvent>[] -> WriteConcurrencyCheck -> Async<WriteResult>
 
  
