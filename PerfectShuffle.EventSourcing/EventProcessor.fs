@@ -70,9 +70,8 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
             let! r = persistEvents batch
             replyChannel.Reply r
             return! loop()
-        | ReadState replyChannel ->          
-            let! state = readModel.CurrentStateAsync()
-            
+        | ReadState replyChannel ->     
+            let! state = readModel.CurrentStateAsync()            
             replyChannel.Reply state
             return! loop()
         | ReadLatestFromStore ->
@@ -91,15 +90,15 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
   
   do agent.Post ReadLatestFromStore
     
-  // TODO: Move this retry policy out of here and make it more powerful (exponential backoff, triggers etc)
-  do
-    let rec timer() =
-      async {
-        agent.Post ReadLatestFromStore
-        do! Async.Sleep 1000
-        return! timer()
-      }
-    timer() |> Async.Start
+//  // TODO: Move this retry policy out of here and make it more powerful (exponential backoff, triggers etc)
+//  do
+//    let rec timer() =
+//      async {
+//        agent.Post ReadLatestFromStore
+//        do! Async.Sleep 1000
+//        return! timer()
+//      }
+//    timer() |> Async.Start
 
   interface IEventProcessor<'TState, 'TEvent> with
     /// Applies a batch of events and persists them to disk
@@ -107,6 +106,7 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
       agent.PostAndAsyncReply(fun replyChannel -> Persist(batch, replyChannel))
 
     member this.ExtendedState () =
+      agent.Post ReadLatestFromStore
       agent.PostAndAsyncReply(fun replyChannel -> ReadState(replyChannel))
 
     member this.State () =

@@ -66,9 +66,9 @@ let main argv =
       | Choice1Of2 currentState ->
         let users = currentState.State.Users
           
-        printfn "Current users:"
-        for user in users do
-          printfn "%A" user.Value
+        printfn "Current users: %d" users.Count
+//        for user in users do
+//          printfn "%A" user.Value
       | Choice2Of2 e ->
         printfn "Something went terribly wrong: %A" e
       printfn "TIME to insert %d events: %dms" evts.Length sw.ElapsedMilliseconds
