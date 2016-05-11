@@ -61,7 +61,7 @@ module Serialization =
           let a = e
           raise e
 
-      let deserialize (t, et:string, data:byte array) =
+      let deserialize (t, data:byte array) =
           use ms = new MemoryStream(data)
           use sr = new StreamReader(ms)
           use jsonReader = new JsonTextReader(sr)
@@ -73,5 +73,5 @@ module Serialization =
         let typ,payload = box e |> JsonNet.serialize
         { TypeName = typ; Payload = payload}
       member __.Deserialize e = 
-        JsonNet.deserialize (typeof<EventWithMetadata<'TEvent>>, e.TypeName, e.Payload) :?> _
+        JsonNet.deserialize (typeof<EventWithMetadata<'TEvent>>, e.Payload) :?> _
       }
