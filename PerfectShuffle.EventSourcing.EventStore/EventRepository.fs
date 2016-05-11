@@ -31,7 +31,7 @@ type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, seria
         evts |> Array.map (fun e ->
           let serializedEvent = serializer.Serialize e
           let metaData = [||] : byte array
-          new EventData(Guid.NewGuid(), serializedEvent.TypeName, true, serializedEvent.Payload, metaData)          
+          new EventData(e.Id, serializedEvent.TypeName, true, serializedEvent.Payload, metaData)          
         )
 
       let expectedVersion =
@@ -56,11 +56,11 @@ type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, seria
         
       let r =
         match result with
-        | Choice.Choice1Of2(writeResult) -> Success
+        | Choice.Choice1Of2(writeResult) -> Choice1Of2 (StreamVersion (writeResult.NextExpectedVersion))
         | Choice.Choice2Of2(exn) ->
           match getInnerException exn with
-          | :? EventStore.ClientAPI.Exceptions.WrongExpectedVersionException -> ConcurrencyCheckFailed
-          | e -> WriteException(e)            
+          | :? EventStore.ClientAPI.Exceptions.WrongExpectedVersionException -> WriteFailure.ConcurrencyCheckFailed |> Choice2Of2
+          | e -> WriteFailure.WriteException e |> Choice2Of2          
       return r
   }
 
@@ -72,11 +72,12 @@ type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, seria
         let f = System.Action<_, ResolvedEvent>(fun _ evt ->
             let unpacked = unpack evt
             let eventNumber = evt.OriginalEventNumber
-            let evt = {EventNumber = eventNumber; Event = unpacked}
+            let evt = { StartVersion = evt.OriginalEventNumber; Events = [|unpacked|]}            
             observer.OnNext evt              
           )
       
-        let subscription = conn.SubscribeToStreamFrom(streamId, EventStore.ClientAPI.StreamCheckpoint.StreamStart, false, f)
+        let settings = CatchUpSubscriptionSettings(2000, 100, false, false)
+        let subscription = conn.SubscribeToStreamFrom(streamId, EventStore.ClientAPI.StreamCheckpoint.StreamStart, settings, f)
 
         {new IDisposable with member __.Dispose() = subscription.Stop()}                
       }      

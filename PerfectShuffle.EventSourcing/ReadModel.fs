@@ -16,7 +16,7 @@
       Events : EventWithMetadata<'TEvent>[]
     }
  
-  type ReadModelState<'TState> = {State:'TState; NextExpectedStreamVersion : Option<int>}
+  type ReadModelState<'TState> = {State:'TState; NextExpectedStreamVersion : int}
 
   type IReadModel<'TState, 'TEvent> =
     abstract member Apply : Batch<'TEvent> -> Choice<unit,exn>
@@ -30,38 +30,37 @@
 
   exception ReadModelException of string
 
-  type ReadModel<'TState,'TEvent>(initialState, apply) = 
+  type ReadModel<'TState,'TEvent>(initialState, apply, firstVersion) = 
     
     let agent =
       Agent<ReadModelMsg<'TState, 'TEvent>>.Start(fun inbox ->
-        let rec loop nextExpectedStreamVersion (internalState:'TState) =
+        let rec loop (nextExpectedStreamVersion:int) (internalState:'TState) =
           async {            
           let! msg = inbox.Receive()
             
           match msg with
           | Update(batch, replyChannel) ->
-            match nextExpectedStreamVersion with
-            | Some(nextStreamVersion) when batch.StartVersion <> nextStreamVersion ->
-              replyChannel.Reply (Choice2Of2 <| ReadModelException "Wrong stream version")
-              return! loop nextExpectedStreamVersion internalState
-            | None | Some _ ->
-              replyChannel.Reply (Choice1Of2 ()) 
+            if batch.StartVersion <> nextExpectedStreamVersion
+              then
+                replyChannel.Reply (Choice2Of2 <| ReadModelException "Wrong stream version")
+                return! loop nextExpectedStreamVersion internalState
+              else
+                replyChannel.Reply (Choice1Of2 ()) 
                 
-              let newState =
-                batch.Events
-                |> Seq.fold apply internalState
+                let newState =
+                  batch.Events
+                  |> Seq.fold apply internalState
 
-              for evt in batch.Events do
-                printfn "Readmodel applying event %d / %A" batch.StartVersion evt.Id
-                ()
+  //              for evt in batch.Events do
+  //                printfn "Readmodel applying event %d / %A" batch.StartVersion evt.Id
 
-              return! loop (Some(batch.StartVersion + batch.Events.Length)) newState
+                return! loop (batch.StartVersion + batch.Events.Length) newState
           | CurrentState replyChannel ->
               replyChannel.Reply {State = internalState; NextExpectedStreamVersion = nextExpectedStreamVersion}
               return! loop nextExpectedStreamVersion internalState                    
           }
 
-        loop None initialState
+        loop firstVersion initialState
         )
 
     interface IReadModel<'TState, 'TEvent> with  

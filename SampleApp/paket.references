@@ -2,3 +2,4 @@ EventStore.Client
 FSharp.Core
 FSharpx.Collections
 WindowsAzure.Storage
+FSharp.Control.AsyncSeq

@@ -4,6 +4,7 @@ module Store =
 
   open System
   open System.Net
+  open FSharp.Control
 
   type WriteConcurrencyCheck =
   /// This disables the optimistic concurrency check.
@@ -26,7 +27,9 @@ module Store =
   type WriteResult = Choice<WriteSuccess, WriteFailure>
 
   type IEventRepository<'TEvent> =
-    abstract member Events : IObservable<Batch<'TEvent>>
+    // abstract member Events : IObservable<Batch<'TEvent>>
+    abstract member FirstVersion : int
+    abstract member EventsFrom : version:int -> AsyncSeq<Batch<'TEvent>>
     abstract member Save : events:EventWithMetadata<'TEvent>[] -> WriteConcurrencyCheck -> Async<WriteResult>
 
  

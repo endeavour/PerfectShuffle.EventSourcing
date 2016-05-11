@@ -1,3 +1,4 @@
 Newtonsoft.Json
 Newtonsoft.Json.FSharp
 FSharpx.Collections
+FSharp.Control.AsyncSeq

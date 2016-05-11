@@ -27,21 +27,12 @@ module MySampleApp =
 
   exception EventProcessorException of exn
 
-  let getBootstrapEvents (readModel:IReadModel<State,DomainEvent>) =
-      [||]
-      |> Array.map (EventWithMetadata<_>.Wrap)
-
 //  open PerfectShuffle.EventSourcing.EventStore
 
   let initialiseEventProcessor() =    
 //    let eventStoreEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 1113)
 //    let eventStoreConnection = EventStore.Connect eventStoreEndpoint
 
-    let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply) :> IReadModel<_,_>            
-    
-    readModel.Error.Subscribe(fun e ->
-      raise <| EventProcessorException(e)
-      ) |> ignore<System.IDisposable>
 
     let serializer = Serialization.CreateDefaultSerializer<DomainEvent>()
 
@@ -50,26 +41,14 @@ module MySampleApp =
 
     let repository =
       let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
-      PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
-    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>
+      new PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository<_>(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
 
-    let initialBootstrapResult =
-      let bootstrapEvents = getBootstrapEvents readModel
-      let bootstrapResult =
-        repository.Save bootstrapEvents Store.WriteConcurrencyCheck.NoStream
-        |> Async.RunSynchronously
-      match bootstrapResult with
-      | Store.WriteResult.Choice2Of2 _ ->
-        printfn "Stream already exists, skipping bootstrap events."
-      | Store.WriteResult.Choice1Of2 _ ->
-        printfn "Boostrapped"
+    let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply, repository.FirstVersion) :> IReadModel<_,_>            
+    readModel.Error.Subscribe(fun e ->
+      raise <| EventProcessorException(e)
+      ) |> ignore<System.IDisposable>
 
-    printf "Subscribing to events feed..."    
-    let subscription = repository.Events.Subscribe(fun batch ->      
-      readModel.Apply(batch) |> ignore<Choice<_,_>>
-      for e in batch.Events do
-        printfn "Event %d / %A received from store" batch.StartVersion e.Id)
     
-    printfn "[OK]"
+    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository)
         
-    subscription, evtProcessor
+    evtProcessor :> IEventProcessor<_,_>
