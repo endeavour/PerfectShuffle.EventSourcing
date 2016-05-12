@@ -37,26 +37,18 @@ module Serialization =
         MapConverter() :> JsonConverter
         OptionConverter() :> JsonConverter
         TupleArrayConverter() :> JsonConverter
-        UnionConverter() :> JsonConverter
+        IdiomaticDuConverter() :> JsonConverter
         UriConverter() :> JsonConverter
       |] |> Seq.iter (s.Converters.Add)
       s.NullValueHandling <- NullValueHandling.Ignore
-    
-      let eventType o =
-          let t = o.GetType()
-          if FSharpType.IsUnion(t) || (t.DeclaringType <> null && FSharpType.IsUnion(t.DeclaringType)) then
-              let cases = FSharpType.GetUnionCases(t)
-              let unionCase,_ = FSharpValue.GetUnionFields(o, t)
-              unionCase.Name
-          else t.Name
-        
+           
       let serialize o =
         try
           use ms = new MemoryStream()
           (use jsonWriter = new JsonTextWriter(new StreamWriter(ms))
           s.Serialize(jsonWriter, o))
           let data = ms.ToArray()
-          (eventType o),data
+          (o.GetType().Name),data
         with e ->
           let a = e
           raise e
