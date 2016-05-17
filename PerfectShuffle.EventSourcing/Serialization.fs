@@ -8,9 +8,9 @@ module Serialization =
       Payload : byte[]
     }
 
-  type IEventSerializer<'TEvent> =
-    abstract member Serialize : EventWithMetadata<'TEvent> -> SerializedEvent
-    abstract member Deserialize : SerializedEvent -> EventWithMetadata<'TEvent>
+  type IEventSerializer<'event> =
+    abstract member Serialize : EventWithMetadata<'event> -> SerializedEvent
+    abstract member Deserialize : SerializedEvent -> EventWithMetadata<'event>
 
   open System
   open System.IO
@@ -37,7 +37,8 @@ module Serialization =
         MapConverter() :> JsonConverter
         OptionConverter() :> JsonConverter
         TupleArrayConverter() :> JsonConverter
-        IdiomaticDuConverter() :> JsonConverter
+        UnionConverter() :> JsonConverter
+        //IdiomaticDuConverter() :> JsonConverter
         UriConverter() :> JsonConverter
       |] |> Seq.iter (s.Converters.Add)
       s.NullValueHandling <- NullValueHandling.Ignore
@@ -59,11 +60,11 @@ module Serialization =
           use jsonReader = new JsonTextReader(sr)
           s.Deserialize(jsonReader, t)
 
-  let CreateDefaultSerializer<'TEvent>() = 
-    { new IEventSerializer<'TEvent> with
+  let CreateDefaultSerializer<'event>() = 
+    { new IEventSerializer<'event> with
       member __.Serialize e =
         let typ,payload = box e |> JsonNet.serialize
         { TypeName = typ; Payload = payload}
       member __.Deserialize e = 
-        JsonNet.deserialize (typeof<EventWithMetadata<'TEvent>>, e.Payload) :?> _
+        JsonNet.deserialize (typeof<EventWithMetadata<'event>>, e.Payload) :?> _
       }

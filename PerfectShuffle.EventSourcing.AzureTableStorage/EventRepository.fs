@@ -23,8 +23,26 @@ type EventEntity =
   }
 
 /// Implementation of an event repository that connects to Azure Table Storage
-type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableName:string, partitionName:string, serializer : Serialization.IEventSerializer<'TEvent>) =
-   
+type AzureTableStream<'event>(storageCredentials:Auth.StorageCredentials, streamName:string, partitionName:string, serializer : Serialization.IEventSerializer<'event>) =
+    
+  let hash (str:string) =
+    let sha = System.Security.Cryptography.SHA256.Create()
+    let sha256 =
+      System.Text.Encoding.UTF8.GetBytes(str)
+      |> sha.ComputeHash
+    let sb = System.Text.StringBuilder()
+    sb.Append "T" |> ignore // table names have to start with a letter and the hash might not
+    for b in sha256 do
+      sb.Append (b.ToString("x2")) |> ignore
+    let hashString = sb.ToString()
+    hashString.[0..min (hashString.Length - 1) 62] // Truncate to 62 chars
+
+  let tableName = hash streamName
+
+  do
+    let tableNameVerification = System.Text.RegularExpressions.Regex("^[A-Za-z][A-Za-z0-9]{2,62}$")
+    assert (tableNameVerification.IsMatch tableName) // Please see storage naming rules at https://blogs.msdn.microsoft.com/jmstall/2014/06/12/azure-storage-naming-rules/"
+
   let tableClient =
     let cloudStorageAccount = CloudStorageAccount(storageCredentials, true)
     let tableClient = cloudStorageAccount.CreateCloudTableClient()
@@ -32,9 +50,10 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
 
   let table = tableClient.GetTableReference(tableName)
   
-  // TODO: Remove this line from production
-  //do table.DeleteIfExists() |> ignore
-  //do table.Create() |> ignore
+  let createTableTask =
+    async {
+    do! table.CreateIfNotExistsAsync() |> Async.AwaitTask |> Async.Ignore
+    } |> Async.StartAsTask
   
   let partition = Partition(table, partitionName)
 
@@ -78,14 +97,16 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
     let sliceSize = 100
     let rec rawEventStreamAux startVersion =
       asyncSeq {
-        printfn "Reading from version %d" startVersion        
+        do! createTableTask |> Async.AwaitTask
+        printfn "%s: Reading from version %d" streamName startVersion    
+        let! foo = Stream.ExistsAsync(partition) |> Async.AwaitTask
         let! stream = Stream.TryOpenAsync(partition)|> Async.AwaitTask
         if stream.Found then
           let! slice = Stream.ReadAsync<EventEntity>(partition, startVersion = startVersion, sliceSize = sliceSize) |> Async.AwaitTask      
-          printfn "READING VERSION %d" startVersion
+          printfn "%s READING VERSION %d" streamName startVersion
           for i = 0 to slice.Events.Length - 1 do
             let evt = slice.Events.[i]
-            printfn "\tREAD EVT: (%d/%d) Version %d\n\tEvent ID: %A" (i+1) slice.Events.Length evt.Version evt.Id
+            printfn "%s \tREAD EVT: (%d/%d) Version %d\n\tEvent ID: %A" streamName (i+1) slice.Events.Length evt.Version evt.Id
             yield evt
         
           match slice.Events |> Array.tryLast with
@@ -106,7 +127,7 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
       let evt = serializer.Deserialize(serializedEvent)
       { StartVersion = x.Version; Events = [|evt|]})   
 
-  let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'TEvent>[]) : Async<WriteResult> =
+  let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'event>[]) : Async<WriteResult> =
     async {      
       if evts.Length = 0
         then
@@ -178,7 +199,7 @@ type EventRepository<'TEvent>(storageCredentials:Auth.StorageCredentials, tableN
           return result
   }
 
-  interface IEventRepository<'TEvent> with
+  interface IStream<'event> with
     member __.FirstVersion = 1
     member __.EventsFrom index = deserializedEventStream index
     member __.Save evts concurrencyCheck = commit concurrencyCheck evts

@@ -3,18 +3,19 @@
 module MySampleApp =
 
   open PerfectShuffle.EventSourcing
+  open PerfectShuffle.EventSourcing.Store
   
   open SampleApp.Domain
   open SampleApp.Events
   
   // Exposed to outside world, optimised for read access.
-  type State = {Users : Map<string,User>}
+  type UserState = {User : Option<User>}
     with
-      static member Zero = {Users = Map.empty}
+      static member Zero = {User = None}
 
-  let apply (state:State) (eventWithMetadata:EventWithMetadata<SampleApp.Events.DomainEvent>) : State =
+  let apply (state:UserState) (eventWithMetadata:EventWithMetadata<SampleApp.Events.UserEvent>) : UserState =
     match eventWithMetadata.Event with
-    | DomainEvent.UserCreated userInfo ->
+    | UserEvent.UserCreated userInfo ->
       let newUser : User =
         {
           Name = userInfo.Name
@@ -22,33 +23,43 @@ module MySampleApp =
           Email = userInfo.Email
           Password = userInfo.Password
         }
-      let newUsers = state.Users.Add(userInfo.Email, newUser)
-      {state with Users = newUsers}
+      match state.User with
+      | None -> {state with User = Some newUser}
+      | Some user ->
+        // TODO: Log error
+        state
+
+    | UserEvent.PasswordChanged newPw ->
+      match state.User with
+      | Some user ->
+        let updatedUser = {user with Password = newPw}
+        {state with User = Some updatedUser }
+      | None ->
+        // TODO: Log error
+        state
 
   exception EventProcessorException of exn
 
-//  open PerfectShuffle.EventSourcing.EventStore
 
-  let initialiseEventProcessor() =    
-//    let eventStoreEndpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("127.0.0.1"), 1113)
-//    let eventStoreConnection = EventStore.Connect eventStoreEndpoint
+  let getUserStreamManager() =    
 
-
-    let serializer = Serialization.CreateDefaultSerializer<DomainEvent>()
-
-//    let repository = EventRepository<DomainEvent>(eventStoreConnection, "SampleAppEvents", serializer) :> Store.IEventRepository<_>    
-//    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository) :> IEventProcessor<_,_>  
-
-    let repository =
-      let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
-      new PerfectShuffle.EventSourcing.AzureTableStorage.EventRepository<_>(credentials, "eventstoresample", "mypartition", serializer) :> Store.IEventRepository<_>   
-
-    let readModel = PerfectShuffle.EventSourcing.ReadModel(State.Zero, apply, repository.FirstVersion) :> IReadModel<_,_>            
-    readModel.Error.Subscribe(fun e ->
-      raise <| EventProcessorException(e)
-      ) |> ignore<System.IDisposable>
-
-    
-    let evtProcessor = EventProcessor<State, DomainEvent>(readModel, repository)
+    let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
+              
+    let userStreamManager =
+      
+      let streamFactory =
         
-    evtProcessor :> IEventProcessor<_,_>
+        { new IStreamFactory with
+            member __.CreateStream<'event> name =
+              let serializer = Serialization.CreateDefaultSerializer<'event>()
+              new PerfectShuffle.EventSourcing.AzureTableStorage.AzureTableStream<'event>(credentials, name, "mypartition", serializer) :> Store.IStream<_>}
+      
+      let serializer = Serialization.CreateDefaultSerializer<UserEvent>()
+      
+      let eventProcessorFactory (stream:IStream<UserEvent>) : IEventProcessor<UserEvent, UserState> =
+        let readModel = SequencedReadModel(UserState.Zero, apply, stream.FirstVersion)
+        EventProcessor<UserEvent, UserState>(readModel, stream) :> IEventProcessor<_,_>
+
+      StreamManager<UserEvent, UserState>(streamFactory, eventProcessorFactory)
+
+    userStreamManager

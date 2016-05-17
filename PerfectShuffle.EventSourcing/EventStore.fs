@@ -26,10 +26,9 @@ module Store =
 
   type WriteResult = Choice<WriteSuccess, WriteFailure>
 
-  type IEventRepository<'TEvent> =
-    // abstract member Events : IObservable<Batch<'TEvent>>
+  type IStream<'event> =
     abstract member FirstVersion : int
-    abstract member EventsFrom : version:int -> AsyncSeq<Batch<'TEvent>>
-    abstract member Save : events:EventWithMetadata<'TEvent>[] -> WriteConcurrencyCheck -> Async<WriteResult>
+    abstract member EventsFrom : version:int -> AsyncSeq<Batch<'event>>
+    abstract member Save : events:EventWithMetadata<'event>[] -> WriteConcurrencyCheck -> Async<WriteResult>
 
  

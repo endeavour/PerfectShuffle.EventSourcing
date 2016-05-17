@@ -15,7 +15,7 @@ module EventStore =
       conn
 
 /// Implementation of an event repository that connects to Greg Young's EventStore (www.geteventstore.com)
-type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, serializer : Serialization.IEventSerializer<'TEvent>) =
+type EventRepository<'event>(conn:IEventStoreConnection, streamId:string, serializer : Serialization.IEventSerializer<'event>) =
     
   let unpack (e:ResolvedEvent) =      
     serializer.Deserialize({TypeName = e.Event.EventType; Payload = e.Event.Data})
@@ -26,7 +26,7 @@ type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, seria
 //      eventsSlice.Events |> Seq.map unpack
 //  }
 
-  let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'TEvent>[]) = async {
+  let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'event>[]) = async {
       let eventsData =
         evts |> Array.map (fun e ->
           let serializedEvent = serializer.Serialize e
@@ -82,6 +82,6 @@ type EventRepository<'TEvent>(conn:IEventStoreConnection, streamId:string, seria
         {new IDisposable with member __.Dispose() = subscription.Stop()}                
       }      
 
-  interface IEventRepository<'TEvent> with
+  interface IStream<'event> with
     member __.Events = eventsObservable
     member __.Save evts concurrencyCheck = commit concurrencyCheck evts

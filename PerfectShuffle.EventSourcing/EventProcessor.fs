@@ -7,18 +7,21 @@ type PersistenceFailure =
 | WriteFailure of WriteFailure
 | ReadModelException of exn
 
-type private Msg<'TEvent, 'TState> =
+type private Msg<'event, 'state> =
 | ReadLatestFromStore
-| Persist of Batch<'TEvent> * AsyncReplyChannel<Choice<ReadModelState<'TState>,PersistenceFailure>>
-| ReadState of AsyncReplyChannel<ReadModelState<'TState>>
+| Persist of Batch<'event> * AsyncReplyChannel<Choice<ReadModelState<'state>,PersistenceFailure>>
+| ReadState of AsyncReplyChannel<ReadModelState<'state>>
 | Exit
 
-type IEventProcessor<'TState, 'TEvent> =
-  abstract member Persist : Batch<'TEvent> -> Async<Choice<ReadModelState<'TState>, PersistenceFailure>>
-  abstract member ExtendedState : unit -> Async<ReadModelState<'TState>>
-  abstract member State : unit -> Async<'TState>
+type IEventProcessor<'event, 'state> =
+  abstract member Persist : Batch<'event> -> Async<Choice<ReadModelState<'state>, PersistenceFailure>>
+  abstract member ExtendedState : unit -> Async<ReadModelState<'state>>
+  abstract member State : unit -> Async<'state>
 
-type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, store : Store.IEventRepository<'TEvent>) = 
+// TODO: This current reads from the position specified by the readmodel which doesn't change for nonsequenced
+// streams so it's inefficient. Either split this class into two (Sequenced/Unsequenced) or factor out the functionality
+// for determining where to read from and keep a poiter in the event processor for unordered streams instead of in the readmodel
+type EventProcessor<'event, 'state> (readModel:IReadModel<'state, 'event>, stream:Store.IStream<'event>) = 
   
   let asyncAgent = Agent<_>.Start(fun inbox ->
     let rec loop() =
@@ -33,16 +36,20 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
     asyncSeq {
       let! currentState = readModel.CurrentStateAsync()
       let nextUnreadEvent = currentState.NextExpectedStreamVersion
-      yield! store.EventsFrom nextUnreadEvent      
+      yield! stream.EventsFrom nextUnreadEvent      
     }
  
   let agent =
     MailboxProcessor<_>.Start(fun inbox ->
       
-      let rec persistEvents (batch:Batch<_>) : Async<Choice<ReadModelState<'TState>, PersistenceFailure>>  =
+      let rec persistEvents (batch:Batch<_>) : Async<Choice<ReadModelState<'state>, PersistenceFailure>>  =
         async {
-            let concurrency = Store.WriteConcurrencyCheck.NewEventNumber(batch.StartVersion - 1)
-            let! r = store.Save batch.Events concurrency
+            // TODO: refactor this
+            let concurrency =
+              match readModel.IsOrdered with
+              | true -> Store.WriteConcurrencyCheck.NewEventNumber(batch.StartVersion - 1)
+              | false -> Store.Any
+            let! r = stream.Save batch.Events concurrency
             
             match r with
             | Choice1Of2 writeSucess ->
@@ -89,20 +96,10 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
       )
   
   do agent.Post ReadLatestFromStore
-    
-//  // TODO: Move this retry policy out of here and make it more powerful (exponential backoff, triggers etc)
-//  do
-//    let rec timer() =
-//      async {
-//        agent.Post ReadLatestFromStore
-//        do! Async.Sleep 1000
-//        return! timer()
-//      }
-//    timer() |> Async.Start
 
-  interface IEventProcessor<'TState, 'TEvent> with
+  interface IEventProcessor<'event, 'state> with
     /// Applies a batch of events and persists them to disk
-    member this.Persist (batch:Batch<'TEvent>)=
+    member this.Persist (batch:Batch<'event>)=
       agent.PostAndAsyncReply(fun replyChannel -> Persist(batch, replyChannel))
 
     member this.ExtendedState () =
@@ -111,6 +108,6 @@ type EventProcessor<'TState, 'TEvent> (readModel:IReadModel<'TState, 'TEvent>, s
 
     member this.State () =
       async {
-        let! result = (this :> IEventProcessor<'TState, 'TEvent>).ExtendedState()
+        let! result = (this :> IEventProcessor<'event, 'state>).ExtendedState()
         return result.State
       }

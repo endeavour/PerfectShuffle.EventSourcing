@@ -4,5 +4,6 @@ namespace SampleApp.Events
 type UserInfo = {Name : string; Company : string; Email: string; Password : string}
 
 // Domain events. Past tense.
-type DomainEvent = 
+type UserEvent = 
 | UserCreated of UserInfo
+| PasswordChanged of newPassword:string
