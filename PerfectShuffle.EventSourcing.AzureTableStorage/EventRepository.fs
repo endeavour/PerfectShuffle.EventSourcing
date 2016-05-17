@@ -169,7 +169,7 @@ type AzureTableStream<'event>(storageCredentials:Auth.StorageCredentials, stream
             | Some n ->
               async {
                 try
-                  let! result = Stream.WriteAsync(partition, n, eventsData) |> Async.AwaitTask              
+                  let! result = Stream.WriteAsync(partition, n, eventsData) |> Async.AwaitTask
                   return Choice1Of2 (StreamVersion (result.Stream.Version))                   
                 with
                   | AggregateOrSingleExn [:? ConcurrencyConflictException as e] ->

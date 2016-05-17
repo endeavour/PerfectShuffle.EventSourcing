@@ -35,7 +35,7 @@ module Main =
           }
       }
 
-    let changePw name newPw =
+    let changePw email newPw =
 
       let evts =
         [|
@@ -43,34 +43,39 @@ module Main =
         |] |> Array.map EventWithMetadata<_>.Wrap 
 
       async {
-      let! evtProcessor = userStreamManager.GetEventProcessor(name)
+      let! evtProcessor = userStreamManager.GetEventProcessor(email)
       let! state = evtProcessor.ExtendedState()
       let batch = {StartVersion = state.NextExpectedStreamVersion; Events = evts }
       let! result = evtProcessor.Persist batch
       return result
       }
 
-    let evts1 =
+    let createAndChangePw name email =
+      let name = name
+      let email = sprintf "%s@foo.com" name
       async {
-        do! createUser "James" "james@ciseware.com" "test123" |> Async.Ignore
-        do! changePw "James" "test321" |> Async.Ignore
+        do! createUser name email "test123" |> Async.Ignore
+        do! changePw email "test321" |> Async.Ignore
       }
-    let evts2 =
-      async {
-        do! createUser "Tom" "tom@ciseware.com" "test123" |> Async.Ignore
-        do! changePw "Tom" "test321" |> Async.Ignore
-      }
-    let evts3 =
-      async {
-        do! createUser "Fred" "fred@ciseware.com" "test123" |> Async.Ignore
-        do! changePw "Fred" "test321" |> Async.Ignore
-      }
+
+
+    let nameAndEmails =
+      [0..3]
+      |> Seq.map (fun n ->
+        let name = sprintf "user%d" n
+        let email = sprintf "%s@foo.com" name
+        name, email)
+
+    let evts =
+      nameAndEmails
+      |> Seq.map (fun (name,email) -> createAndChangePw name email)
 
     async {
       
-      do! [|evts1;evts2;evts3|] |> Async.Parallel |> Async.Ignore
+      do! evts |> Async.Parallel |> Async.Ignore
 
-      let! streams = userStreamManager.Streams()
+      //let! streams = userStreamManager.Streams()
+      let streams = nameAndEmails |> Seq.map snd
       let! processors = streams |> Seq.map userStreamManager.GetEventProcessor |> Async.Parallel
       let! users = processors |> Seq.map (fun x ->
         async {

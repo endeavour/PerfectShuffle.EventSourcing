@@ -26,7 +26,7 @@ module MySampleApp =
       match state.User with
       | None -> {state with User = Some newUser}
       | Some user ->
-        // TODO: Log error
+        printfn "User already exists" 
         state
 
     | UserEvent.PasswordChanged newPw ->
@@ -35,7 +35,7 @@ module MySampleApp =
         let updatedUser = {user with Password = newPw}
         {state with User = Some updatedUser }
       | None ->
-        // TODO: Log error
+        printfn "Could not find user" 
         state
 
   exception EventProcessorException of exn

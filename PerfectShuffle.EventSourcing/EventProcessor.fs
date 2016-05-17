@@ -52,14 +52,32 @@ type EventProcessor<'event, 'state> (readModel:IReadModel<'state, 'event>, strea
             let! r = stream.Save batch.Events concurrency
             
             match r with
-            | Choice1Of2 writeSucess ->
-              let readModelResult = readModel.Apply batch
-              match readModelResult with
+            | Choice1Of2 (StreamVersion n) ->
+              let! currentState = readModel.CurrentStateAsync()
+              let newEvents = stream.EventsFrom currentState.NextExpectedStreamVersion
+              let! readModelResult =
+                newEvents
+                |> AsyncSeq.fold (fun acc x -> readModel.Apply x :: acc) [] 
+              let readModelResults =
+                readModelResult
+                |> Seq.fold (fun (acc:Choice<unit, exn list>) (x:Choice<unit, exn>) ->
+                  match acc with
+                  | Choice1Of2 () ->
+                    match x with
+                    | Choice1Of2 () -> Choice1Of2 ()
+                    | Choice2Of2 e -> Choice2Of2 [e]
+                  | Choice2Of2 es ->
+                    match x with
+                    | Choice1Of2 () -> Choice2Of2 es
+                    | Choice2Of2 e -> Choice2Of2 (e::es)) (Choice1Of2 ())
+              
+              match readModelResults with
               | Choice1Of2 (()) ->
                 let! result = readModel.CurrentStateAsync()
                 return Choice1Of2(result)
-              | Choice2Of2 e ->
-                return Choice2Of2 (ReadModelException e)
+              | Choice2Of2 es ->
+                let aggregateException = System.AggregateException es
+                return Choice2Of2 (ReadModelException aggregateException)
             | Choice2Of2 reason ->
               match reason with
               | WriteFailure.ConcurrencyCheckFailed ->

@@ -75,26 +75,34 @@
     
     let agent =
       Agent<ReadModelMsg<'state, 'event>>.Start(fun inbox ->
-        let rec loop (internalState:'state) =
-          async {            
-          let! msg = inbox.Receive()
+        let rec loop (nextExpectedStreamVersion:int) (pending:List<int>) (internalState:'state) =
+          match pending with
+          | n::ns when n = nextExpectedStreamVersion ->
+            printfn "Consuming %d" n
+            loop (nextExpectedStreamVersion + 1) ns internalState
+          | _ ->
+            async {            
+            let! msg = inbox.Receive()
             
-          match msg with
-          | Update(batch, replyChannel) ->
+            match msg with
+            | Update(batch, replyChannel) ->
 
-              replyChannel.Reply (Choice1Of2 ()) 
+                replyChannel.Reply (Choice1Of2 ()) 
                 
-              let newState =
-                batch.Events
-                |> Seq.fold apply internalState
+                let newState =
+                  batch.Events
+                  |> Seq.fold apply internalState
 
-              return! loop newState
-          | CurrentState replyChannel ->
-              replyChannel.Reply {State = internalState; NextExpectedStreamVersion = firstVersion}
-              return! loop internalState                    
-          }
+                let newPending =
+                  [batch.StartVersion..batch.StartVersion + batch.Events.Length] @ pending
 
-        loop initialState
+                return! loop nextExpectedStreamVersion newPending newState
+            | CurrentState replyChannel ->
+                replyChannel.Reply {State = internalState; NextExpectedStreamVersion = nextExpectedStreamVersion}
+                return! loop nextExpectedStreamVersion pending internalState                    
+            }
+
+        loop firstVersion [] initialState
         )
 
     interface IReadModel<'state, 'event> with  
