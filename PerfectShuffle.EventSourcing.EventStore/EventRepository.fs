@@ -60,16 +60,17 @@ type EventRepository<'event>(conn:IEventStoreConnection, streamId:string, serial
   }
 
   let eventsFrom n =
+    let batchSize = 1000
     let rec eventsFromAux n =
       asyncSeq {
-      let! events = conn.ReadStreamEventsForwardAsync(streamId, n, 1000, false) |> Async.AwaitTask
+      let! events = conn.ReadStreamEventsForwardAsync(streamId, n, batchSize, false) |> Async.AwaitTask
       for evt in events.Events do
         let unpacked = unpack evt
         let eventNumber = evt.OriginalEventNumber
         let evt = { StartVersion = evt.OriginalEventNumber; Events = [|unpacked|]}
         yield evt
         if not events.IsEndOfStream then
-          yield! eventsFromAux (n + 1000)
+          yield! eventsFromAux (n + batchSize)
       }
     eventsFromAux n
 
