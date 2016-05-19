@@ -4,6 +4,7 @@ open System
 open PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing.Store
 open EventStore.ClientAPI
+open FSharp.Control
 
 module EventStore =
   open System.Net
@@ -20,12 +21,6 @@ type EventRepository<'event>(conn:IEventStoreConnection, streamId:string, serial
   let unpack (e:ResolvedEvent) =      
     serializer.Deserialize({TypeName = e.Event.EventType; Payload = e.Event.Data})
     
-//  let load () = async {
-//    let! eventsSlice = conn.ReadStreamEventsForwardAsync(streamId, 0, Int32.MaxValue, false) |> Async.AwaitTask
-//    return
-//      eventsSlice.Events |> Seq.map unpack
-//  }
-
   let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'event>[]) = async {
       let eventsData =
         evts |> Array.map (fun e ->
@@ -64,24 +59,21 @@ type EventRepository<'event>(conn:IEventStoreConnection, streamId:string, serial
       return r
   }
 
-  let eventsObservable =
-
-    {new System.IObservable<_> with
-      member __.Subscribe(observer) =
-
-        let f = System.Action<_, ResolvedEvent>(fun _ evt ->
-            let unpacked = unpack evt
-            let eventNumber = evt.OriginalEventNumber
-            let evt = { StartVersion = evt.OriginalEventNumber; Events = [|unpacked|]}            
-            observer.OnNext evt              
-          )
-      
-        let settings = CatchUpSubscriptionSettings(2000, 100, false, false)
-        let subscription = conn.SubscribeToStreamFrom(streamId, EventStore.ClientAPI.StreamCheckpoint.StreamStart, settings, f)
-
-        {new IDisposable with member __.Dispose() = subscription.Stop()}                
-      }      
+  let eventsFrom n =
+    let rec eventsFromAux n =
+      asyncSeq {
+      let! events = conn.ReadStreamEventsForwardAsync(streamId, n, 1000, false) |> Async.AwaitTask
+      for evt in events.Events do
+        let unpacked = unpack evt
+        let eventNumber = evt.OriginalEventNumber
+        let evt = { StartVersion = evt.OriginalEventNumber; Events = [|unpacked|]}
+        yield evt
+        if not events.IsEndOfStream then
+          yield! eventsFromAux (n + 1000)
+      }
+    eventsFromAux n
 
   interface IStream<'event> with
-    member __.Events = eventsObservable
+    member __.FirstVersion = 0
+    member __.EventsFrom version = eventsFrom version
     member __.Save evts concurrencyCheck = commit concurrencyCheck evts
