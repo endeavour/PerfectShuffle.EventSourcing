@@ -20,7 +20,6 @@ module Serialization =
 
       open System.Collections.Generic
       open Newtonsoft.Json
-      open Newtonsoft.Json.FSharp
       open Newtonsoft.Json.Serialization
       open Newtonsoft.Json.Converters
       open Microsoft.FSharp.Reflection
@@ -29,18 +28,6 @@ module Serialization =
       
       s.ContractResolver <- CamelCasePropertyNamesContractResolver ()      
       s.Formatting <- Formatting.Indented
-      [|
-        BigIntConverter() :> JsonConverter
-        CultureInfoConverter() :> JsonConverter
-        GuidConverter() :> JsonConverter
-        ListConverter() :> JsonConverter
-        MapConverter() :> JsonConverter
-        OptionConverter() :> JsonConverter
-        TupleArrayConverter() :> JsonConverter
-        UnionConverter() :> JsonConverter
-        //IdiomaticDuConverter() :> JsonConverter
-        UriConverter() :> JsonConverter
-      |] |> Seq.iter (s.Converters.Add)
       s.NullValueHandling <- NullValueHandling.Ignore
            
       let serialize o =

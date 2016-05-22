@@ -43,7 +43,7 @@ module MySampleApp =
 
   let getUserStreamManager() =    
 
-    let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "TPrq6CzszWwTpWcHwXTJ7Nc0xCHaSP9SvwdJkCcwcmQcmiPyK9DoIzoo45cfLc1L3HPboksozbMzNsVn3hgL3A==")
+    let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "xvCdGoD7d/F6dCPFRUH4KxMIidezDD01mB1Gc/Ducdkzn3wJqRts+lSgPDWCAL8Wc+RnlBPmGGrscPR2Ba/VHg==")
               
     let userStreamManager =
       
