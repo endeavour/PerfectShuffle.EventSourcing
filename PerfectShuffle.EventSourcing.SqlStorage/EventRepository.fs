@@ -15,6 +15,14 @@ module SqlStorage =
     let eventsFrom version = 
       AsyncSeq.empty
 
+    let rec getInnerException (exn:Exception) =
+      match exn with
+      | :? System.AggregateException as e ->
+        if e.InnerExceptions.Count = 1
+          then getInnerException e.InnerException
+          else exn
+      | e -> e     
+
     let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'event>[]) = async {
 
       use dt = new DataTable()      
@@ -47,7 +55,7 @@ module SqlStorage =
 
 
       use connection = new SqlConnection(connectionString)
-      connection.Open()
+      do! connection.OpenAsync() |> Async.AwaitTask
       let transactionOptions = TransactionOptions(IsolationLevel = IsolationLevel.ReadCommitted)     
       try
         use cmd = new SqlCommand("usp_StoreEvents", connection, CommandType = CommandType.StoredProcedure)
@@ -67,13 +75,18 @@ module SqlStorage =
           
         cmd.Parameters.AddWithValue("EventList", dt) |> ignore
         
-        using (new TransactionScope(TransactionScopeOption.Required, transactionOptions)) (fun ts ->
-          cmd.ExecuteNonQuery() |> ignore<int>
+        let ts = new TransactionScope(TransactionScopeOption.Required, transactionOptions, TransactionScopeAsyncFlowOption.Enabled)
+        try
+          do! cmd.ExecuteNonQueryAsync() |> Async.AwaitTask |> Async.Ignore
           ts.Complete()
-          )
+        finally
+          ts.Dispose()
+
         let endVersion = Convert.ToInt32(endVersionOutputParam.Value)
         return WriteResult.Choice1Of2 (WriteSuccess.StreamVersion endVersion)
-      with
+      with e ->
+        let innerException = getInnerException e
+        match innerException with
         | :? SqlException as e when e.Number = 53001 ->
           return WriteResult.Choice2Of2 (WriteFailure.ConcurrencyCheckFailed)
         | e -> 

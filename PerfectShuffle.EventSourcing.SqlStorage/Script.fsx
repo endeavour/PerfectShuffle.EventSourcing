@@ -30,7 +30,9 @@ let someEvents = [|
   {Name = "Bill"; Age=32}
   |]
 
-let wrappedEvents = someEvents |> Array.map EventWithMetadata<_>.Wrap
-
-iStream.Save (wrappedEvents) (WriteConcurrencyCheck.NewEventNumber 29) |> Async.RunSynchronously
-
+async {
+  for i in 51..2..100 do
+    let wrappedEvents = someEvents |> Array.map EventWithMetadata<_>.Wrap
+    let! result = iStream.Save (wrappedEvents) (WriteConcurrencyCheck.NewEventNumber i) 
+    printfn "%A" result
+} |> Async.RunSynchronously
