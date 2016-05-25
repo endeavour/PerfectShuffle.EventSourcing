@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{12E7246B-A4E8-4294-AE95-4421BD21E503}"
 	ProjectSection(SolutionItems) = preProject
@@ -16,6 +16,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.EventStore", "PerfectShuffle.EventSourcing.EventStore\PerfectShuffle.EventSourcing.EventStore.fsproj", "{9B6EFE2C-015B-4AB7-8750-C22F2A2E98A3}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.AzureTableStorage", "PerfectShuffle.EventSourcing.AzureTableStorage\PerfectShuffle.EventSourcing.AzureTableStorage.fsproj", "{41199845-254E-4F31-90CD-B49493B38F84}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.SqlStorage", "PerfectShuffle.EventSourcing.SqlStorage\PerfectShuffle.EventSourcing.SqlStorage.fsproj", "{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{41199845-254E-4F31-90CD-B49493B38F84}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{41199845-254E-4F31-90CD-B49493B38F84}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{41199845-254E-4F31-90CD-B49493B38F84}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
