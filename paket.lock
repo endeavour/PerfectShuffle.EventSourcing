@@ -16,7 +16,6 @@ NUGET
     Microsoft.Data.Services.Client (5.7)
       Microsoft.Data.OData (5.7)
     Newtonsoft.Json (8.0.3)
-    SQLProvider (1.0.6)
     Streamstone (0.9.8)
       WindowsAzure.Storage (>= 6.1)
     System.Spatial (5.7)

@@ -1,6 +1,5 @@
 ﻿namespace PerfectShuffle.EventSourcing.SqlStorage
 
-open FSharp.Data.Sql
 open PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing.Store
 open FSharp.Control
@@ -10,8 +9,6 @@ module SqlStorage =
   open System.Data
   open System.Data.SqlClient
   open System.Transactions
-
-  //type Sql = SqlDataProvider<Common.DatabaseProviderTypes.MSSQLSERVER, "Data Source=(localdb)\mssqllocaldb;Initial Catalog=EventStore;Integrated Security=True", CaseSensitivityChange=Common.CaseSensitivityChange.ORIGINAL>   
 
   type EventRepository<'event>(connectionString:string, streamId:string, serializer : Serialization.IEventSerializer<'event>) =
     
@@ -76,8 +73,11 @@ module SqlStorage =
           )
         let endVersion = Convert.ToInt32(endVersionOutputParam.Value)
         return WriteResult.Choice1Of2 (WriteSuccess.StreamVersion endVersion)
-      with e ->
-        return WriteResult.Choice2Of2 (WriteFailure.WriteException e)
+      with
+        | :? SqlException as e when e.Number = 53001 ->
+          return WriteResult.Choice2Of2 (WriteFailure.ConcurrencyCheckFailed)
+        | e -> 
+          return WriteResult.Choice2Of2 (WriteFailure.WriteException e)
     }
 
     interface IStream<'event> with

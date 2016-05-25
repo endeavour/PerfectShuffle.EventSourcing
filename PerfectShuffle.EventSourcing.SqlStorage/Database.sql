@@ -41,49 +41,31 @@ BEGIN
    SET NOCOUNT ON;
       
     BEGIN TRANSACTION
+     
 
-	BEGIN TRY        
+	DECLARE @UniqueEventList dbo.EventList;
 
-		DECLARE @UniqueEventList dbo.EventList;
+	DECLARE @DateCreated DATETIME = GetDate();
 
-		DECLARE @DateCreated DATETIME = GetDate();
+	DECLARE @StartIndex BIGINT
 
-		DECLARE @StartIndex BIGINT
+	SELECT @StartIndex = ISNULL(MAX([StreamVersion]), 0) FROM [Commit] WHERE [StreamName] = @StreamName		
+	SELECT @EndVersion = @StartIndex + Count([SeqNumber]) FROM @EventList
 
-		SELECT @StartIndex = ISNULL(MAX([StreamVersion]), 0) FROM [Commit] WHERE [StreamName] = @StreamName		
-		SELECT @EndVersion = @StartIndex + Count([SeqNumber]) FROM @EventList
-
-		IF @ExpectedStartVersion IS NOT NULL AND @StartIndex + 1 <> @ExpectedStartVersion 		
-		BEGIN
-			THROW 53001, 'Unexpected start index', 1;
-		END
-		ELSE
-			--Insert Event
-			INSERT INTO [dbo].[Commit] ([StreamName], [StreamVersion], [DeduplicationId], [EventType], [Headers], [Payload], [EventStamp])
-			SELECT @StreamName, eml.[SeqNumber] + @StartIndex + 1, eml.[DeduplicationId], eml.EventType, eml.Headers, eml.PayLoad, eml.EventStamp FROM @EventList eml
-			LEFT JOIN [dbo].[Commit] em ON (em.[DeduplicationId] = eml.[DeduplicationId])
-			WHERE em.[DeduplicationId] IS NULL
-			ORDER BY eml.[SeqNumber] ASC
+	IF @ExpectedStartVersion IS NOT NULL AND @StartIndex + 1 <> @ExpectedStartVersion 		
+	BEGIN
+		THROW 53001, 'Unexpected start index', 1;
+	END
+	ELSE
+		--Insert Event
+		INSERT INTO [dbo].[Commit] ([StreamName], [StreamVersion], [DeduplicationId], [EventType], [Headers], [Payload], [EventStamp])
+		SELECT @StreamName, eml.[SeqNumber] + @StartIndex + 1, eml.[DeduplicationId], eml.EventType, eml.Headers, eml.PayLoad, eml.EventStamp FROM @EventList eml
+		LEFT JOIN [dbo].[Commit] em ON (em.[DeduplicationId] = eml.[DeduplicationId])
+		WHERE em.[DeduplicationId] IS NULL
+		ORDER BY eml.[SeqNumber] ASC
 			
 
-		COMMIT TRANSACTION
-
-	END TRY 
-	BEGIN CATCH
-		
-		   IF @@TRANCOUNT > 0
-                  ROLLBACK TRANSACTION
-
-			DECLARE @ErrorMessage NVARCHAR(4000);
-			DECLARE @ErrorSeverity INT;
-			DECLARE @ErrorState INT;
-			DECLARE @ErrorLine INT;
-			SELECT @ErrorMessage = ERROR_MESSAGE(),
-			@ErrorSeverity = ERROR_SEVERITY(),
-			@ErrorLine=ERROR_LINE(),
-			@ErrorState = ERROR_STATE();   
-	   RAISERROR (@ErrorMessage,@ErrorSeverity,@ErrorState,@ErrorLine);
-	END CATCH 
+	COMMIT TRANSACTION
 
 END
 GO
