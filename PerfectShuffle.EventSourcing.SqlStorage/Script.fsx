@@ -1,12 +1,4 @@
-﻿// Learn more about F# at http://fsharp.org. See the 'F# Tutorial' project
-// for more guidance on F# programming.
-
-//#load "EventRepository.fs"
-//#r @"C:\Users\danielr\Source\Repos\perfectshuffle.eventsourcing\PerfectShuffle.EventSourcing.SqlStorage\bin\Debug\PerfectShuffle.EventSourcing.dll"
-//#r @"C:\Users\danielr\Source\Repos\perfectshuffle.eventsourcing\PerfectShuffle.EventSourcing.SqlStorage\bin\Debug\PerfectShuffle.EventSourcing.SqlStorage.dll"
-
-#load "Scripts/load-references-debug.fsx"
-#load "Scripts/load-project-debug.fsx"
+﻿#load "Scripts/load-project-debug.fsx"
 
 open PerfectShuffle.EventSourcing.SqlStorage
 open PerfectShuffle.EventSourcing
@@ -16,7 +8,7 @@ open System
 
 // Define your library scripting code here
 
-type MyEvent = {Name : string; Age : int}
+type MyEvent = {Name : string; Age : int64}
 let serializer = Serialization.CreateDefaultSerializer<MyEvent>()
 
 let evtRespository = SqlStorage.EventRepository<MyEvent>(
@@ -30,7 +22,7 @@ let iStream = evtRespository :> IStream<MyEvent>
 let saveEvents () = 
 
   async {
-    for i = 1 to 1000 do
+    for i = 1L to 1000L do
       let evts =
         [|
           {Name = "Bob"; Age=i}
@@ -43,10 +35,10 @@ let saveEvents () =
 
 saveEvents ()
 
-let events = iStream.EventsFrom 1 |> AsyncSeq.toBlockingSeq
+let events = iStream.EventsFrom 1L |> AsyncSeq.toBlockingSeq
 
 for e in events do
-  printfn "%d: %A" e.Version e.Event
+  printfn "%d: %A" e.Metadata.StreamVersion e.Event
 
 
 

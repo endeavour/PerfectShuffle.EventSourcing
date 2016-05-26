@@ -14,10 +14,10 @@ module Store =
   /// this specifies the expectation that the target stream has been explicitly created, but does not yet have any user events written in it.
   | EmptyStream
   /// Any other integer value	The event number that you expect the stream to currently be at.
-  | NewEventNumber of int
+  | NewEventNumber of int64
 
   type WriteSuccess =
-  | StreamVersion of int
+  | StreamVersion of int64
 
   type WriteFailure =
   | NoItems
@@ -28,13 +28,13 @@ module Store =
 
   type Batch<'event> =
     {
-      StartVersion : int
+      StartVersion : int64
       Events : EventToRecord<'event>[]
     }
 
   type IStream<'event> =
-    abstract member FirstVersion : int
-    abstract member EventsFrom : version:int -> AsyncSeq<EventWithMetadataAndVersion<'event>>
+    abstract member FirstVersion : int64
+    abstract member EventsFrom : version:int64 -> AsyncSeq<RecordedEvent<'event>>
     abstract member Save : events:EventToRecord<'event>[] -> WriteConcurrencyCheck -> Async<WriteResult>
 
  

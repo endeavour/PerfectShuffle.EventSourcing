@@ -13,12 +13,12 @@ module SqlStorage =
 
   type EventRepository<'event>(connectionString:string, streamId:string, serializer : Serialization.IEventSerializer<'event>) =
     
-    let eventsFrom (version:int) = 
+    let eventsFrom (version:int64) = 
       let connection = new SqlConnection(connectionString)
       
-      let batchSize = 100
+      let batchSize = 1000L
 
-      let rec readBatch (start:int) =
+      let rec readBatch (start:int64) =
         asyncSeq {
         use cmd = new SqlCommand("usp_GetStreamEvents", connection, CommandType = CommandType.StoredProcedure)
         cmd.Parameters.AddWithValue("StreamName", streamId) |> ignore
@@ -30,14 +30,27 @@ module SqlStorage =
           asyncSeq {
           let! isMore = reader.ReadAsync() |> Async.AwaitTask
           if isMore then
+            let commitVersion = reader.["CommitVersion"] :?> int64
             let payload = reader.["Payload"] :?> byte[]
             let eventType = reader.["EventType"] :?> string
-            let version = reader.["StreamVersion"] :?> int64
+            let streamVersion = reader.["StreamVersion"] :?> int64
+            let streamName = reader.["StreamName"] :?> string
             let deduplicationId = reader.["DeduplicationId"] :?> Guid
             let eventTimestamp = reader.["EventStamp"] :?> DateTime
-            let metadata = {Id = deduplicationId; Timestamp = eventTimestamp}
+            let commitTimestamp = reader.["CommitStamp"] :?> DateTime
+            let metadata = 
+              {
+                TypeName = eventType
+                CommitVersion = commitVersion
+                StreamName = streamName
+                StreamVersion = streamVersion
+                DeduplicationId = deduplicationId
+                EventStamp = eventTimestamp
+                CommitStamp = commitTimestamp
+              }
+            //{Id = deduplicationId; Timestamp = eventTimestamp}
             let event = serializer.Deserialize({TypeName = eventType; Payload = payload})            
-            yield { Event = event; Metadata = metadata; Version = int version }
+            yield { Event = event; Metadata = metadata }
             yield! read()
           }
 
@@ -127,7 +140,7 @@ module SqlStorage =
         finally
           ts.Dispose()
 
-        let endVersion = Convert.ToInt32(endVersionOutputParam.Value)
+        let endVersion = endVersionOutputParam.Value :?> int64
         return WriteResult.Choice1Of2 (WriteSuccess.StreamVersion endVersion)
       with e ->        
         let innerException = getInnerException e
@@ -139,7 +152,7 @@ module SqlStorage =
     }
 
     interface IStream<'event> with
-      member __.FirstVersion = 1
+      member __.FirstVersion = 1L
       member __.EventsFrom version = eventsFrom version
       member __.Save evts concurrencyCheck = commit concurrencyCheck evts
 

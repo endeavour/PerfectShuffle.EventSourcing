@@ -1,34 +1,52 @@
 ﻿namespace PerfectShuffle.EventSourcing
   open Microsoft.FSharp.Control
+  open System
 
   type Agent<'t> = MailboxProcessor<'t>
 
   type Id = System.Guid
   
   
-  type Metadata = {Id : Id; Timestamp : System.DateTime}
+  //type Metadata = {Id : Id; Timestamp : System.DateTime}
 
   type EventToRecord<'event> = 
     {
       DeduplicationId : Id; 
-      Timestamp : System.DateTime      
+      Timestamp : DateTime      
       Event : 'event
     }
 
-  type EventWithMetadataAndVersion<'event> = {Event : 'event; Metadata : Metadata; Version: int}
+  type RecordedMetadata = 
+    {
+      TypeName : string      
+      CommitVersion : int64
+      StreamName : string
+      StreamVersion : int64
+      DeduplicationId : Guid
+      EventStamp : DateTime
+      CommitStamp : DateTime
+    }
+
+  type RecordedEvent<'event> =
+    {
+      Event : 'event
+      Metadata : RecordedMetadata
+    }
+
+  //type EventWithMetadataAndVersion<'event> = {Event : 'event; Metadata : Metadata; Version: int}
 
 
-  type ReadModelState<'state> = {State:'state; NextExpectedStreamVersion : int}
+  type ReadModelState<'state> = {State:'state; NextExpectedStreamVersion : int64}
 
   type IReadModel<'state, 'event> =
-    abstract member Apply : event:'event -> streamVersion:int -> Choice<unit,exn>
+    abstract member Apply : event:'event -> streamVersion:int64 -> Choice<unit,exn>
     abstract member CurrentState : unit -> ReadModelState<'state>
     abstract member CurrentStateAsync : unit -> Async<ReadModelState<'state>>
     abstract member Error : IEvent<Handler<exn>, exn>
     abstract member IsOrdered : bool
 
   type private ReadModelMsg<'TExternalState, 'event> =
-    | Update of 'event * streamVersion:int * AsyncReplyChannel<Choice<unit,exn>>
+    | Update of 'event * streamVersion:int64 * AsyncReplyChannel<Choice<unit,exn>>
     | CurrentState of AsyncReplyChannel<ReadModelState<'TExternalState>>
 
   exception ReadModelException of string
@@ -37,7 +55,7 @@
     
     let agent =
       Agent<ReadModelMsg<'state, 'event>>.Start(fun inbox ->
-        let rec loop (nextExpectedStreamVersion:int) (internalState:'state) =
+        let rec loop (nextExpectedStreamVersion:int64) (internalState:'state) =
           async {            
           let! msg = inbox.Receive()
             
@@ -52,7 +70,7 @@
                                 
                 let newState = apply internalState event
 
-                return! loop (streamVersion + 1) newState
+                return! loop (streamVersion + 1L) newState
           | CurrentState replyChannel ->
               replyChannel.Reply {State = internalState; NextExpectedStreamVersion = nextExpectedStreamVersion}
               return! loop nextExpectedStreamVersion internalState                    
@@ -74,11 +92,11 @@
     
     let agent =
       Agent<ReadModelMsg<'state, 'event>>.Start(fun inbox ->
-        let rec loop (nextExpectedStreamVersion:int) (pending:List<int>) (internalState:'state) =
+        let rec loop (nextExpectedStreamVersion:int64) (pending:List<int64>) (internalState:'state) =
           match pending with
           | n::ns when n = nextExpectedStreamVersion ->
             printfn "Consuming %d" n
-            loop (nextExpectedStreamVersion + 1) ns internalState
+            loop (nextExpectedStreamVersion + 1L) ns internalState
           | _ ->
             async {            
             let! msg = inbox.Receive()
