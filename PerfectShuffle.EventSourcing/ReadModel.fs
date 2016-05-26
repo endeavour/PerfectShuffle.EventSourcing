@@ -5,14 +5,15 @@
 
   type Id = System.Guid
   
+  
   type Metadata = {Id : Id; Timestamp : System.DateTime}
 
-  type EventWithMetadata<'event> =
-    {Event : 'event; Metadata : Metadata}
-      with
-        static member Wrap evt =
-          let metadata =  {Id = System.Guid.NewGuid(); Timestamp = System.DateTime.UtcNow}
-          { Event = evt; Metadata=  metadata}
+  type EventToRecord<'event> = 
+    {
+      DeduplicationId : Id; 
+      Timestamp : System.DateTime      
+      Event : 'event
+    }
 
   type EventWithMetadataAndVersion<'event> = {Event : 'event; Metadata : Metadata; Version: int}
 

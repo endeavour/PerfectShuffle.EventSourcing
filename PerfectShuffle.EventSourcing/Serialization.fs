@@ -48,5 +48,5 @@ module Serialization =
         let typ,payload = box e |> JsonNet.serialize
         { TypeName = typ; Payload = payload}
       member __.Deserialize e = 
-        JsonNet.deserialize (typeof<EventWithMetadata<'event>>, e.Payload) :?> _
+        JsonNet.deserialize (typeof<'event>, e.Payload) :?> _
       }

@@ -1,6 +1,7 @@
 ﻿namespace PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing.Store
+open System
 
 type IStreamFactory =
   abstract member CreateStream<'event> : string -> IStream<'event>
@@ -43,8 +44,8 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
     async {    
     let evts =
       [|
-        StreamCreated name
-      |] |> Array.map EventWithMetadata<_>.Wrap
+        {DeduplicationId = Guid.NewGuid(); Timestamp = DateTime.UtcNow; Event = StreamCreated name }
+      |]
     let! streams = streamOfStreamsEventProcessor.ExtendedState()    
     let batch : Batch<_> = {StartVersion = streams.NextExpectedStreamVersion; Events = evts}
     return! streamOfStreamsEventProcessor.Persist batch

@@ -29,12 +29,12 @@ module Store =
   type Batch<'event> =
     {
       StartVersion : int
-      Events : EventWithMetadata<'event>[]
+      Events : EventToRecord<'event>[]
     }
 
   type IStream<'event> =
     abstract member FirstVersion : int
     abstract member EventsFrom : version:int -> AsyncSeq<EventWithMetadataAndVersion<'event>>
-    abstract member Save : events:EventWithMetadata<'event>[] -> WriteConcurrencyCheck -> Async<WriteResult>
+    abstract member Save : events:EventToRecord<'event>[] -> WriteConcurrencyCheck -> Async<WriteResult>
 
  

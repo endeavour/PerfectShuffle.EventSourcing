@@ -1,4 +1,5 @@
 ﻿namespace SampleApp
+open System
 open PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing.Store
 
@@ -11,10 +12,12 @@ module Main =
 
     let createUser name email pw =
 
+      let evt = SampleApp.Events.UserCreated {Name = name; Email=email; Password=pw; Company = "Acme Corp"} 
+
       let evts =
-        [|
-          SampleApp.Events.UserCreated {Name = name; Email=email; Password=pw; Company = "Acme Corp"}            
-        |] |> Array.map EventWithMetadata<_>.Wrap 
+        [|          
+          {DeduplicationId = Guid.NewGuid(); Timestamp = DateTime.UtcNow; Event = evt }                     
+        |]
 
       async {
       let! evtProcessor = userStreamManager.GetEventProcessor email
@@ -38,10 +41,12 @@ module Main =
 
     let changePw email newPw =
 
+      let evt = SampleApp.Events.PasswordChanged newPw
+
       let evts =
         [|
-          SampleApp.Events.PasswordChanged newPw
-        |] |> Array.map EventWithMetadata<_>.Wrap 
+          {DeduplicationId = Guid.NewGuid(); Timestamp = DateTime.UtcNow; Event = evt }          
+        |]
 
       async {
       let! evtProcessor = userStreamManager.GetEventProcessor(email)

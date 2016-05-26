@@ -68,7 +68,7 @@ module SqlStorage =
           else exn
       | e -> e     
 
-    let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'event>[]) = async {
+    let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventToRecord<'event>[]) = async {
 
       use dt = new DataTable()      
       let cols =
@@ -88,11 +88,11 @@ module SqlStorage =
           let serializedEvent = serializer.Serialize evt.Event
           let row = dt.NewRow()
           row.["SeqNumber"] <- i
-          row.["DeduplicationId"] <- evt.Metadata.Id
+          row.["DeduplicationId"] <- evt.DeduplicationId
           row.["EventType"] <- serializedEvent.TypeName
           row.["Headers"] <- ([||] : byte[]) // TODO!
           row.["Payload"] <- serializedEvent.Payload
-          row.["EventStamp"] <- evt.Metadata.Timestamp
+          row.["EventStamp"] <- evt.Timestamp
           row
         )
       |> Seq.iter dt.Rows.Add

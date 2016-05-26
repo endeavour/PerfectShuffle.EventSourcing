@@ -12,6 +12,7 @@ open PerfectShuffle.EventSourcing.SqlStorage
 open PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing.Store
 open FSharp.Control
+open System
 
 // Define your library scripting code here
 
@@ -29,16 +30,18 @@ let iStream = evtRespository :> IStream<MyEvent>
 let saveEvents () = 
 
   async {
-    for i = 1 to 100000 do
+    for i = 1 to 1000 do
       let evts =
         [|
           {Name = "Bob"; Age=i}
         |]
-      let wrappedEvents = evts |> Array.map EventWithMetadata<_>.Wrap
+      let wrappedEvents = evts |> Array.map (fun x-> {DeduplicationId = Guid.NewGuid(); Timestamp = DateTime.UtcNow; Event = x })
       let! result = iStream.Save (wrappedEvents) (WriteConcurrencyCheck.NewEventNumber i) 
       printfn "%A" result
   } |> Async.RunSynchronously
 
+
+saveEvents ()
 
 let events = iStream.EventsFrom 1 |> AsyncSeq.toBlockingSeq
 
