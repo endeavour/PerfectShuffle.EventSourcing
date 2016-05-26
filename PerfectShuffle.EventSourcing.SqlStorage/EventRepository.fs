@@ -33,8 +33,11 @@ module SqlStorage =
             let payload = reader.["Payload"] :?> byte[]
             let eventType = reader.["EventType"] :?> string
             let version = reader.["StreamVersion"] :?> int64
+            let deduplicationId = reader.["DeduplicationId"] :?> Guid
+            let eventTimestamp = reader.["EventStamp"] :?> DateTime
+            let metadata = {Id = deduplicationId; Timestamp = eventTimestamp}
             let event = serializer.Deserialize({TypeName = eventType; Payload = payload})            
-            yield { Event = event.Event; Metadata = event.Metadata; Version = int version }
+            yield { Event = event; Metadata = metadata; Version = int version }
             yield! read()
           }
 
@@ -82,7 +85,7 @@ module SqlStorage =
 
       evts
       |> Seq.mapi (fun i evt ->
-          let serializedEvent = serializer.Serialize evt
+          let serializedEvent = serializer.Serialize evt.Event
           let row = dt.NewRow()
           row.["SeqNumber"] <- i
           row.["DeduplicationId"] <- evt.Metadata.Id

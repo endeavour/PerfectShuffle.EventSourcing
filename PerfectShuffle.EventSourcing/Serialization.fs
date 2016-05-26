@@ -9,8 +9,8 @@ module Serialization =
     }
 
   type IEventSerializer<'event> =
-    abstract member Serialize : EventWithMetadata<'event> -> SerializedEvent
-    abstract member Deserialize : SerializedEvent -> EventWithMetadata<'event>
+    abstract member Serialize : 'event -> SerializedEvent
+    abstract member Deserialize : SerializedEvent -> 'event
 
   open System.IO
   
