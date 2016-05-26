@@ -57,42 +57,6 @@ type AzureTableStream<'event>(storageCredentials:Auth.StorageCredentials, stream
   
   let partition = Partition(table, partitionName)
 
-  let timeBeforeNextFetchWhenEndOfStreamReached = (TimeSpan.FromMilliseconds 100.0)
-  let maxTimeBetweenFetches = (TimeSpan.FromSeconds 5.0)  
-
-//  // TODO: Continue reading stream forever. If we get to end of stream wait some amount of time then try reading again (exponential back-off with a cap?)
-//  let rawEventStream =    
-//    let sliceSize = 100
-//    let rec rawEventStreamAux startVersion (timeout:System.TimeSpan) =
-//      // TODO: Why are we reading form startVersion when it's quite possible these events originated on this system?
-//      // Can't we use readmodel position + 1 as the startVersion? Will need some refactoring.
-//
-//      asyncSeq {
-//        let! result = Async.AwaitWaitHandle(readLatest, int timeout.TotalMilliseconds) // false if it timed out, true otherwise.
-//        printfn "Reading from version %d" startVersion        
-//        let! slice = Stream.ReadAsync<EventEntity>(partition, startVersion = startVersion, sliceSize = sliceSize) |> Async.AwaitTask      
-//        printfn "READING VERSION %d" startVersion
-//        for i = 0 to slice.Events.Length - 1 do
-//          let evt = slice.Events.[i]
-//          printfn "\tREAD EVT: (%d/%d) Version %d\n\tEvent ID: %A" i sliceSize evt.Version evt.Id
-//          yield evt
-//        
-//        match slice.Events |> Array.tryLast with
-//        | None ->
-//          // Exponential backoff with an upper limit
-//          let timeToWait = min (timeout.Add(timeout)) maxTimeBetweenFetches
-//          printfn "Waiting %f seconds before retry" timeToWait.TotalSeconds
-//          yield! rawEventStreamAux startVersion timeToWait
-//        | Some evt ->
-//          if slice.IsEndOfStream
-//            then
-//              yield! rawEventStreamAux (evt.Version + 1) timeBeforeNextFetchWhenEndOfStreamReached
-//            else
-//              yield! rawEventStreamAux (evt.Version + 1) TimeSpan.Zero
-//    }
-//    rawEventStreamAux 1 TimeSpan.Zero
-
-  // TODO: Continue reading stream forever. If we get to end of stream wait some amount of time then try reading again (exponential back-off with a cap?)
   let rawEventStream startIndex =    
     let sliceSize = 100
     let rec rawEventStreamAux startVersion =

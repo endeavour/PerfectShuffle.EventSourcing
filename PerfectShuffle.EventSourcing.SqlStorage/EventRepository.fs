@@ -9,11 +9,53 @@ module SqlStorage =
   open System.Data
   open System.Data.SqlClient
   open System.Transactions
+  open System.Text
 
   type EventRepository<'event>(connectionString:string, streamId:string, serializer : Serialization.IEventSerializer<'event>) =
     
-    let eventsFrom version = 
-      AsyncSeq.empty
+    let eventsFrom (version:int) = 
+      let connection = new SqlConnection(connectionString)
+      
+      let batchSize = 100
+
+      let rec readBatch (start:int) =
+        asyncSeq {
+        use cmd = new SqlCommand("usp_GetStreamEvents", connection, CommandType = CommandType.StoredProcedure)
+        cmd.Parameters.AddWithValue("StreamName", streamId) |> ignore
+        cmd.Parameters.AddWithValue("FromStreamVersion", start) |> ignore
+        cmd.Parameters.AddWithValue("BatchSize", batchSize) |> ignore
+        let! reader = cmd.ExecuteReaderAsync() |> Async.AwaitTask
+        
+        let rec read() =
+          asyncSeq {
+          let! isMore = reader.ReadAsync() |> Async.AwaitTask
+          if isMore then
+            let payload = reader.["Payload"] :?> byte[]
+            let eventType = reader.["EventType"] :?> string
+            let version = reader.["StreamVersion"] :?> int64
+            let event = serializer.Deserialize({TypeName = eventType; Payload = payload})            
+            yield { StartVersion = int version; Events = [|event|]}
+            yield! read()
+          }
+
+        let! results = read() |> AsyncSeq.toArrayAsync // TODO: Do we really need to do this?
+
+        for r in results do
+          yield r
+
+        reader.Close()
+
+        if results.Length = 100
+          then yield! readBatch (start + batchSize)
+          else connection.Dispose()
+        }
+
+      asyncSeq {
+        do! connection.OpenAsync() |> Async.AwaitTask
+        yield! readBatch version
+      }
+
+
 
     let rec getInnerException (exn:Exception) =
       match exn with
@@ -31,8 +73,8 @@ module SqlStorage =
           "SeqNumber", typeof<int>
           "DeduplicationId", typeof<Guid>
           "EventType", typeof<string>
-          "Headers", typeof<string>
-          "Payload", typeof<string>
+          "Headers", typeof<byte[]>
+          "Payload", typeof<byte[]>
           "EventStamp", typeof<DateTime>
         |]
 
@@ -45,7 +87,7 @@ module SqlStorage =
           row.["SeqNumber"] <- i
           row.["DeduplicationId"] <- evt.Id
           row.["EventType"] <- serializedEvent.TypeName
-          row.["Headers"] <- "" // TODO!
+          row.["Headers"] <- ([||] : byte[]) // TODO!
           row.["Payload"] <- serializedEvent.Payload
           row.["EventStamp"] <- evt.Timestamp
           row
@@ -84,7 +126,7 @@ module SqlStorage =
 
         let endVersion = Convert.ToInt32(endVersionOutputParam.Value)
         return WriteResult.Choice1Of2 (WriteSuccess.StreamVersion endVersion)
-      with e ->
+      with e ->        
         let innerException = getInnerException e
         match innerException with
         | :? SqlException as e when e.Number = 53001 ->

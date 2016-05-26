@@ -12,17 +12,12 @@ module Serialization =
     abstract member Serialize : EventWithMetadata<'event> -> SerializedEvent
     abstract member Deserialize : SerializedEvent -> EventWithMetadata<'event>
 
-  open System
   open System.IO
-  open System.Text
   
   module private JsonNet =
 
-      open System.Collections.Generic
       open Newtonsoft.Json
       open Newtonsoft.Json.Serialization
-      open Newtonsoft.Json.Converters
-      open Microsoft.FSharp.Reflection
           
       let s = new JsonSerializer()
       
@@ -36,7 +31,7 @@ module Serialization =
           (use jsonWriter = new JsonTextWriter(new StreamWriter(ms))
           s.Serialize(jsonWriter, o))
           let data = ms.ToArray()
-          (o.GetType().Name),data
+          (o.GetType().ToString()),data
         with e ->
           let a = e
           raise e

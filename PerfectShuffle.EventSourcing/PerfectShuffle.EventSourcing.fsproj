@@ -43,7 +43,6 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="ReadModel.fs" />
-    <Compile Include="IdiomaticDuConverter.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="EventStore.fs" />
     <Compile Include="EventProcessor.fs" />

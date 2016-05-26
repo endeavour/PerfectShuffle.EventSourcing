@@ -2,8 +2,8 @@
 	[SeqNumber] INT NOT NULL, -- Sequence number starting from zero
 	[DeduplicationId] UNIQUEIDENTIFIER NOT NULL,
 	[EventType] [varchar](5000) NOT NULL,
-	[Headers] [TEXT] NULL,
-	[Payload] [TEXT] NOT NULL,
+	[Headers] IMAGE NULL,
+	[Payload] IMAGE NOT NULL,
 	[EventStamp] [datetime2] NOT NULL
 	PRIMARY KEY CLUSTERED ([DeduplicationId] ASC)   
 	);
@@ -14,8 +14,8 @@ CREATE TABLE [dbo].[Commit](
 	[StreamVersion] BIGINT NOT NULL,
 	[DeduplicationId] UNIQUEIDENTIFIER NOT NULL,
 	[EventType] [varchar](5000) NOT NULL,
-	[Headers] [TEXT] NULL,
-	[Payload] [TEXT] NOT NULL,
+	[Headers] IMAGE NULL,
+	[Payload] IMAGE NOT NULL,
 	[EventStamp] [datetime2] NOT NULL,
 	[CommitStamp] [datetime2] NOT NULL DEFAULT SYSDATETIME(),
 	CONSTRAINT [PK_Commit] PRIMARY KEY ([CommitVersion])
@@ -38,7 +38,7 @@ AS
 
 BEGIN
 	
-   SET NOCOUNT ON;
+	SET NOCOUNT ON;
       
     BEGIN TRANSACTION
      
