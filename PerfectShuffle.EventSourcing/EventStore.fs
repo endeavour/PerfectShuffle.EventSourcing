@@ -32,6 +32,26 @@ module Store =
       Events : EventToRecord<'event>[]
     }
 
+  type RawEvent =
+    {
+      Payload : byte[] 
+      Metadata : RecordedMetadata     
+    }
+
+  type IAllEventReader =
+    abstract member GetAllEvents : fromCommitVersion:int64 -> AsyncSeq<RawEvent>
+
+  type IStreamReader =
+    abstract member GetStreamEvents : streamName:string -> fromStreamVersion:int64 -> AsyncSeq<RawEvent>
+
+  type IStreamWriter =
+    abstract member SaveEvents<'event> : streamName:string -> batch:Batch<'event> -> WriteConcurrencyCheck -> Async<WriteResult>
+
+  type IDataProvider =
+    inherit IAllEventReader
+    inherit IStreamReader
+    inherit IStreamWriter
+
   type IStream<'event> =
     abstract member FirstVersion : int64
     abstract member EventsFrom : version:int64 -> AsyncSeq<RecordedEvent<'event>>

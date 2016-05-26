@@ -11,9 +11,9 @@ module SqlStorage =
   open System.Transactions
   open System.Text
 
-  type EventRepository<'event>(connectionString:string, streamId:string, serializer : Serialization.IEventSerializer<'event>) =
+  type SqlDataProvider<'event>(connectionString:string) =
     
-    let eventsFrom (version:int64) = 
+    let eventsFrom (streamName:string) (version:int64) = 
       let connection = new SqlConnection(connectionString)
       
       let batchSize = 1000L
@@ -21,7 +21,7 @@ module SqlStorage =
       let rec readBatch (start:int64) =
         asyncSeq {
         use cmd = new SqlCommand("usp_GetStreamEvents", connection, CommandType = CommandType.StoredProcedure)
-        cmd.Parameters.AddWithValue("StreamName", streamId) |> ignore
+        cmd.Parameters.AddWithValue("StreamName", streamName) |> ignore
         cmd.Parameters.AddWithValue("FromStreamVersion", start) |> ignore
         cmd.Parameters.AddWithValue("BatchSize", batchSize) |> ignore
         let! reader = cmd.ExecuteReaderAsync() |> Async.AwaitTask
@@ -48,9 +48,8 @@ module SqlStorage =
                 EventStamp = eventTimestamp
                 CommitStamp = commitTimestamp
               }
-            //{Id = deduplicationId; Timestamp = eventTimestamp}
-            let event = serializer.Deserialize({TypeName = eventType; Payload = payload})            
-            yield { Event = event; Metadata = metadata }
+            
+            yield { Payload = payload; Metadata = metadata}
             yield! read()
           }
 
@@ -70,8 +69,6 @@ module SqlStorage =
         do! connection.OpenAsync() |> Async.AwaitTask
         yield! readBatch version
       }
-
-
 
     let rec getInnerException (exn:Exception) =
       match exn with
@@ -117,9 +114,9 @@ module SqlStorage =
       let transactionOptions = TransactionOptions(IsolationLevel = IsolationLevel.ReadCommitted)     
       try
         use cmd = new SqlCommand("usp_StoreEvents", connection, CommandType = CommandType.StoredProcedure)
-        cmd.Parameters.AddWithValue("StreamName", streamId) |> ignore
+        cmd.Parameters.AddWithValue("StreamName", streamName) |> ignore
           
-        let endVersionOutputParam = new SqlParameter("EndVersion", streamId)
+        let endVersionOutputParam = new SqlParameter("EndVersion", streamName)
         endVersionOutputParam.SqlDbType <- SqlDbType.BigInt
         endVersionOutputParam.Direction <- ParameterDirection.Output
         cmd.Parameters.Add(endVersionOutputParam) |> ignore
@@ -150,6 +147,25 @@ module SqlStorage =
         | e -> 
           return WriteResult.Choice2Of2 (WriteFailure.WriteException e)
     }
+
+    interface IDataProvider with
+      member x.GetAllEvents(fromCommitVersion: int64): AsyncSeq<RawEvent> = 
+        failwith "Not implemented yet"
+      member x.GetStreamEvents(streamName: string) (fromStreamVersion: int64): AsyncSeq<RawEvent> = 
+        failwith "Not implemented yet"
+      member x.SaveEvents(streamName: string) (events: RawEvent []) (arg1: WriteConcurrencyCheck): Async<WriteResult> = 
+        failwith "Not implemented yet"
+
+  type Stream<'event>(streamName:string, serializer : Serialization.IEventSerializer<'event>, dataProvider:IDataProvider) =
+  
+    let eventsFrom version =
+      dataProvider.GetStreamEvents streamName version
+      |> AsyncSeq.map (fun rawEvent ->
+            let event = serializer.Deserialize({TypeName = rawEvent.Metadata.TypeName; Payload = rawEvent.Payload})                        
+            { Event = event; Metadata = rawEvent.Metadata}
+          )
+
+    let commit 
 
     interface IStream<'event> with
       member __.FirstVersion = 1L
