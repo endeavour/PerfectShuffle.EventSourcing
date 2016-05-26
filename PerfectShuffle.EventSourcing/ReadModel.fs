@@ -21,14 +21,14 @@
   type ReadModelState<'state> = {State:'state; NextExpectedStreamVersion : int}
 
   type IReadModel<'state, 'event> =
-    abstract member Apply : EventWithMetadataAndVersion<'event> -> Choice<unit,exn>
+    abstract member Apply : event:'event -> streamVersion:int -> Choice<unit,exn>
     abstract member CurrentState : unit -> ReadModelState<'state>
     abstract member CurrentStateAsync : unit -> Async<ReadModelState<'state>>
     abstract member Error : IEvent<Handler<exn>, exn>
     abstract member IsOrdered : bool
 
   type private ReadModelMsg<'TExternalState, 'event> =
-    | Update of EventWithMetadataAndVersion<'event> * AsyncReplyChannel<Choice<unit,exn>>
+    | Update of 'event * streamVersion:int * AsyncReplyChannel<Choice<unit,exn>>
     | CurrentState of AsyncReplyChannel<ReadModelState<'TExternalState>>
 
   exception ReadModelException of string
@@ -42,17 +42,17 @@
           let! msg = inbox.Receive()
             
           match msg with
-          | Update(batch, replyChannel) ->
-            if batch.Version <> nextExpectedStreamVersion
+          | Update(event, streamVersion, replyChannel) ->
+            if streamVersion <> nextExpectedStreamVersion
               then
                 replyChannel.Reply (Choice2Of2 <| ReadModelException "Wrong stream version")
                 return! loop nextExpectedStreamVersion internalState
               else
                 replyChannel.Reply (Choice1Of2 ()) 
                                 
-                let newState = apply internalState batch.Event
+                let newState = apply internalState event
 
-                return! loop (batch.Version + 1) newState
+                return! loop (streamVersion + 1) newState
           | CurrentState replyChannel ->
               replyChannel.Reply {State = internalState; NextExpectedStreamVersion = nextExpectedStreamVersion}
               return! loop nextExpectedStreamVersion internalState                    
@@ -62,7 +62,7 @@
         )
 
     interface IReadModel<'state, 'event> with  
-      member __.Apply batch = agent.PostAndReply (fun reply -> Update(batch, reply))
+      member __.Apply event streamVersion = agent.PostAndReply (fun reply -> Update(event, streamVersion, reply))
       member __.CurrentState() = agent.PostAndReply(fun reply -> CurrentState(reply))
       member __.CurrentStateAsync() = agent.PostAndAsyncReply(fun reply -> CurrentState(reply))
       member __.Error = agent.Error
@@ -84,14 +84,13 @@
             let! msg = inbox.Receive()
             
             match msg with
-            | Update(batch, replyChannel) ->
+            | Update(event, streamVersion, replyChannel) ->
 
                 replyChannel.Reply (Choice1Of2 ()) 
                 
-                let newState = apply internalState batch.Event
+                let newState = apply internalState event
 
-                let newPending =
-                  batch.Version :: pending
+                let newPending = streamVersion :: pending
 
                 return! loop nextExpectedStreamVersion newPending newState
             | CurrentState replyChannel ->
@@ -103,7 +102,7 @@
         )
 
     interface IReadModel<'state, 'event> with  
-      member __.Apply batch = agent.PostAndReply (fun reply -> Update(batch, reply))
+      member __.Apply event streamVersion = agent.PostAndReply (fun reply -> Update(event, streamVersion, reply))
       member __.CurrentState() = agent.PostAndReply(fun reply -> CurrentState(reply))
       member __.CurrentStateAsync() = agent.PostAndAsyncReply(fun reply -> CurrentState(reply))
       member __.Error = agent.Error

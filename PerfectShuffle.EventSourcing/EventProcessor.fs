@@ -48,7 +48,7 @@ type EventProcessor<'event, 'state> (readModel:IReadModel<'state, 'event>, strea
               let newEvents = stream.EventsFrom currentState.NextExpectedStreamVersion
               let! readModelResult =
                 newEvents
-                |> AsyncSeq.fold (fun acc x -> readModel.Apply x :: acc) [] 
+                |> AsyncSeq.fold (fun acc x -> readModel.Apply x.Event x.Version :: acc) [] 
               let readModelResults =
                 readModelResult
                 |> Seq.fold (fun (acc:Choice<unit, exn list>) (x:Choice<unit, exn>) ->
@@ -94,8 +94,8 @@ type EventProcessor<'event, 'state> (readModel:IReadModel<'state, 'event>, strea
           printfn "Reading latest"
           do! readEventsFromStore() |> AsyncSeq.iter (fun item ->
           printfn "Applying an item"
-          match readModel.Apply item with
-          | Choice1Of2 _ -> printfn "Applied batch %d" item.Version
+          match readModel.Apply item.Event item.Version with
+          | Choice1Of2 _ -> printfn "Applied event %d" item.Version
           | Choice2Of2 e -> printfn "%A" e)  
           printfn "Up to date"
           return! loop()        
