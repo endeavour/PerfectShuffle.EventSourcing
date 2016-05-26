@@ -88,8 +88,8 @@ type AzureTableStream<'event>(storageCredentials:Auth.StorageCredentials, stream
           TypeName = x.TypeName
           Payload = x.Payload
         }
-      let evt = serializer.Deserialize(serializedEvent)
-      { StartVersion = x.Version; Events = [|evt|]})   
+      let evtWithMetadata = serializer.Deserialize(serializedEvent)
+      { Event = evtWithMetadata.Event; Metadata = evtWithMetadata.Metadata; Version = x.Version })   
 
   let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventWithMetadata<'event>[]) : Async<WriteResult> =
     async {      
@@ -102,8 +102,8 @@ type AzureTableStream<'event>(storageCredentials:Auth.StorageCredentials, stream
           let eventsData =
             evts
             |> Seq.map (fun e ->
-              let serializedEvent = serializer.Serialize e              
-              e.Id, serializedEvent.TypeName, serializedEvent.Payload
+              let serializedEvent = serializer.Serialize e                            
+              e.Metadata.Id, serializedEvent.TypeName, serializedEvent.Payload
             )
             |> Seq.map (fun (guid, typeName, payload) ->
               let props =

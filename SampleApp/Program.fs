@@ -1,5 +1,6 @@
 ﻿namespace SampleApp
 open PerfectShuffle.EventSourcing
+open PerfectShuffle.EventSourcing.Store
 
 module Main =
   

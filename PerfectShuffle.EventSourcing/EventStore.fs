@@ -26,9 +26,15 @@ module Store =
 
   type WriteResult = Choice<WriteSuccess, WriteFailure>
 
+  type Batch<'event> =
+    {
+      StartVersion : int
+      Events : EventWithMetadata<'event>[]
+    }
+
   type IStream<'event> =
     abstract member FirstVersion : int
-    abstract member EventsFrom : version:int -> AsyncSeq<Batch<'event>>
+    abstract member EventsFrom : version:int -> AsyncSeq<EventWithMetadataAndVersion<'event>>
     abstract member Save : events:EventWithMetadata<'event>[] -> WriteConcurrencyCheck -> Async<WriteResult>
 
  

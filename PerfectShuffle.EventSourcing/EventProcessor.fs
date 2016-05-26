@@ -23,15 +23,6 @@ type IEventProcessor<'event, 'state> =
 // for determining where to read from and keep a poiter in the event processor for unordered streams instead of in the readmodel
 type EventProcessor<'event, 'state> (readModel:IReadModel<'state, 'event>, stream:Store.IStream<'event>) = 
   
-  let asyncAgent = Agent<_>.Start(fun inbox ->
-    let rec loop() =
-      async {
-      let! msg = inbox.Receive()
-      return! loop()
-      }
-    loop()
-  )
-
   let readEventsFromStore() =
     asyncSeq {
       let! currentState = readModel.CurrentStateAsync()
@@ -104,7 +95,7 @@ type EventProcessor<'event, 'state> (readModel:IReadModel<'state, 'event>, strea
           do! readEventsFromStore() |> AsyncSeq.iter (fun item ->
           printfn "Applying an item"
           match readModel.Apply item with
-          | Choice1Of2 _ -> printfn "Applied batch %d" item.StartVersion
+          | Choice1Of2 _ -> printfn "Applied batch %d" item.Version
           | Choice2Of2 e -> printfn "%A" e)  
           printfn "Up to date"
           return! loop()        

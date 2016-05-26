@@ -40,11 +40,10 @@ let saveEvents () =
   } |> Async.RunSynchronously
 
 
-let batches = iStream.EventsFrom 1 |> AsyncSeq.toBlockingSeq
+let events = iStream.EventsFrom 1 |> AsyncSeq.toBlockingSeq
 
-for b in batches do
-  for e in b.Events do
-    printfn "%A" e.Event
+for e in events do
+  printfn "%d: %A" e.Version e.Event
 
 
 

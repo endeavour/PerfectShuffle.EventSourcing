@@ -18,7 +18,7 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
     sprintf "%s-%s" "streams" typeof<'event>.FullName
   let streamOfStreams = streamFactory.CreateStream<StreamEvent> streamOfStreamsName
 
-  let streamOfStreamsReadModel =
+  let streamOfStreamsReadModel : ConflictFreeReadModel<_,StreamEvent> =
 
     let createEventProcessorForStream name =
       let hashedName = hash name
@@ -28,13 +28,13 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
 
     // TODO: Instead of Lazy we could do something more clever with caching so infrequently accessed streams
     // drop out of memory until they are next required
-    let apply state (evt:EventWithMetadata<StreamEvent>) =
-      match evt.Event with
+    let apply state (evt:StreamEvent) =
+      match evt with
       | StreamCreated name -> state |> Map.add name (lazy createEventProcessorForStream name)
     ConflictFreeReadModel<_,_>(Map.empty, apply, streamOfStreams.FirstVersion)
 
   let streamOfStreamsEventProcessor =
-    EventProcessor<_,_>(streamOfStreamsReadModel, streamOfStreams) :> IEventProcessor<_,_>
+    EventProcessor<_, _>(streamOfStreamsReadModel, streamOfStreams) :> IEventProcessor<_,_>
 
   // TODO: Change eventprocessor so that is doesn't always enforce concurrency checking
   // in this case the events are commutative, associative and idempotent so the readmodel shouldn't care which order

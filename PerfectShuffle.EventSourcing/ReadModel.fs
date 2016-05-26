@@ -5,29 +5,29 @@
 
   type Id = System.Guid
   
-  type EventWithMetadata<'event> =
-    {Id : Id; Timestamp : System.DateTime; Event : 'event}
-      with
-        static member Wrap evt = {Id = System.Guid.NewGuid(); Timestamp = System.DateTime.UtcNow; Event = evt}
+  type Metadata = {Id : Id; Timestamp : System.DateTime}
 
-  type Batch<'event> =
-    {
-      StartVersion : int
-      Events : EventWithMetadata<'event>[]
-    }
+  type EventWithMetadata<'event> =
+    {Event : 'event; Metadata : Metadata}
+      with
+        static member Wrap evt =
+          let metadata =  {Id = System.Guid.NewGuid(); Timestamp = System.DateTime.UtcNow}
+          { Event = evt; Metadata=  metadata}
+
+  type EventWithMetadataAndVersion<'event> = {Event : 'event; Metadata : Metadata; Version: int}
 
 
   type ReadModelState<'state> = {State:'state; NextExpectedStreamVersion : int}
 
   type IReadModel<'state, 'event> =
-    abstract member Apply : Batch<'event> -> Choice<unit,exn>
+    abstract member Apply : EventWithMetadataAndVersion<'event> -> Choice<unit,exn>
     abstract member CurrentState : unit -> ReadModelState<'state>
     abstract member CurrentStateAsync : unit -> Async<ReadModelState<'state>>
     abstract member Error : IEvent<Handler<exn>, exn>
     abstract member IsOrdered : bool
 
   type private ReadModelMsg<'TExternalState, 'event> =
-    | Update of Batch<'event> * AsyncReplyChannel<Choice<unit,exn>>
+    | Update of EventWithMetadataAndVersion<'event> * AsyncReplyChannel<Choice<unit,exn>>
     | CurrentState of AsyncReplyChannel<ReadModelState<'TExternalState>>
 
   exception ReadModelException of string
@@ -42,18 +42,16 @@
             
           match msg with
           | Update(batch, replyChannel) ->
-            if batch.StartVersion <> nextExpectedStreamVersion
+            if batch.Version <> nextExpectedStreamVersion
               then
                 replyChannel.Reply (Choice2Of2 <| ReadModelException "Wrong stream version")
                 return! loop nextExpectedStreamVersion internalState
               else
                 replyChannel.Reply (Choice1Of2 ()) 
-                
-                let newState =
-                  batch.Events
-                  |> Seq.fold apply internalState
+                                
+                let newState = apply internalState batch.Event
 
-                return! loop (batch.StartVersion + batch.Events.Length) newState
+                return! loop (batch.Version + 1) newState
           | CurrentState replyChannel ->
               replyChannel.Reply {State = internalState; NextExpectedStreamVersion = nextExpectedStreamVersion}
               return! loop nextExpectedStreamVersion internalState                    
@@ -89,12 +87,10 @@
 
                 replyChannel.Reply (Choice1Of2 ()) 
                 
-                let newState =
-                  batch.Events
-                  |> Seq.fold apply internalState
+                let newState = apply internalState batch.Event
 
                 let newPending =
-                  [batch.StartVersion..batch.StartVersion + batch.Events.Length] @ pending
+                  batch.Version :: pending
 
                 return! loop nextExpectedStreamVersion newPending newState
             | CurrentState replyChannel ->

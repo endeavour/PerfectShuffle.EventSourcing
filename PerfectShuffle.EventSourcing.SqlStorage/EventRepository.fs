@@ -34,7 +34,7 @@ module SqlStorage =
             let eventType = reader.["EventType"] :?> string
             let version = reader.["StreamVersion"] :?> int64
             let event = serializer.Deserialize({TypeName = eventType; Payload = payload})            
-            yield { StartVersion = int version; Events = [|event|]}
+            yield { Event = event.Event; Metadata = event.Metadata; Version = int version }
             yield! read()
           }
 
@@ -85,11 +85,11 @@ module SqlStorage =
           let serializedEvent = serializer.Serialize evt
           let row = dt.NewRow()
           row.["SeqNumber"] <- i
-          row.["DeduplicationId"] <- evt.Id
+          row.["DeduplicationId"] <- evt.Metadata.Id
           row.["EventType"] <- serializedEvent.TypeName
           row.["Headers"] <- ([||] : byte[]) // TODO!
           row.["Payload"] <- serializedEvent.Payload
-          row.["EventStamp"] <- evt.Timestamp
+          row.["EventStamp"] <- evt.Metadata.Timestamp
           row
         )
       |> Seq.iter dt.Rows.Add

@@ -26,7 +26,7 @@ type EventRepository<'event>(conn:IEventStoreConnection, streamId:string, serial
         evts |> Array.map (fun e ->
           let serializedEvent = serializer.Serialize e
           let metaData = [||] : byte array
-          new EventData(e.Id, serializedEvent.TypeName, true, serializedEvent.Payload, metaData)          
+          new EventData(e.Metadata.Id, serializedEvent.TypeName, true, serializedEvent.Payload, metaData)          
         )
 
       let expectedVersion =
@@ -67,7 +67,7 @@ type EventRepository<'event>(conn:IEventStoreConnection, streamId:string, serial
       for evt in events.Events do
         let unpacked = unpack evt
         let eventNumber = evt.OriginalEventNumber
-        let evt = { StartVersion = evt.OriginalEventNumber; Events = [|unpacked|]}
+        let evt = { Event = unpacked.Event; Metadata = unpacked.Metadata; Version = eventNumber}
         yield evt
         if not events.IsEndOfStream then
           yield! eventsFromAux (n + batchSize)

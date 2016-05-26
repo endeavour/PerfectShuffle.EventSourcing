@@ -13,8 +13,8 @@ module MySampleApp =
     with
       static member Zero = {User = None}
 
-  let apply (state:UserState) (eventWithMetadata:EventWithMetadata<SampleApp.Events.UserEvent>) : UserState =
-    match eventWithMetadata.Event with
+  let apply (state:UserState) (evt:SampleApp.Events.UserEvent) : UserState =
+    match evt with
     | UserEvent.UserCreated userInfo ->
       let newUser : User =
         {
