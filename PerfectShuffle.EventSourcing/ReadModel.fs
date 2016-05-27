@@ -47,6 +47,12 @@
       Metadata : RecordedMetadata
     }
 
+  type RawEvent =
+    {
+      Payload : byte[]  //TODO: Use SerializedEvent here instead
+      Metadata : RecordedMetadata     
+    }
+
   //type EventWithMetadataAndVersion<'event> = {Event : 'event; Metadata : Metadata; Version: int}
 
 

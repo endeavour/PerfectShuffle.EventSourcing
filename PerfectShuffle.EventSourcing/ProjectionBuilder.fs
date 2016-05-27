@@ -1,10 +1,22 @@
 ﻿namespace PerfectShuffle.EventSourcing
 
-type ProjectionBuilder() =
-  let getEventsFrom initialCommitIndex =
-    printfn "test"
+open System
+open FSharp.Control
+open Store
+open Serialization
 
-  member x.EventsFrom initialCommitIndex = getEventsFrom initialCommitIndex
-    
+type ProjectionBuilder(allEventsReader:IAllEventReader, serializer:IEventSerializer<obj>) =
   
+  let read startCommitVersion batchSize (maxTimeToBuffer:TimeSpan) : IObservable<RecordedEvent<obj>[]> =
 
+    allEventsReader.GetAllEvents startCommitVersion
+    |> AsyncSeq.map (fun rawEvent ->
+      let serializedEvent = {TypeName = rawEvent.Metadata.TypeName; Payload = rawEvent.Payload}
+      let evt = serializer.Deserialize serializedEvent
+      let recordedEvent = {RecordedEvent = evt; Metadata = rawEvent.Metadata}
+      recordedEvent
+      )
+    |> AsyncSeq.bufferByCountAndTime batchSize (int maxTimeToBuffer.TotalMilliseconds)
+    |> AsyncSeq.toObservable
+
+  member __.EventStream startCommitVersion batchSize maxTimeToBuffer = read startCommitVersion batchSize maxTimeToBuffer

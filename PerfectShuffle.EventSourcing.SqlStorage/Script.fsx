@@ -13,7 +13,7 @@ let serializer = Serialization.CreateDefaultSerializer<MyEvent>()
 
 let dataProvider = SqlStorage.SqlDataProvider(@"Data Source=(localdb)\mssqllocaldb;Initial Catalog=EventStore;Integrated Security=True")
 
-let stream = SqlStorage.Stream<MyEvent>("Order-123", serializer, dataProvider) :> IStream<_>
+let stream = Stream<MyEvent>("Order-123", serializer, dataProvider) :> IStream<_>
 
 let saveEvents () = 
 
@@ -31,15 +31,25 @@ let saveEvents () =
   } |> Async.RunSynchronously
 
 
-saveEvents ()
+let readStreamEvents() =
+  let events = stream.EventsFrom 1L |> AsyncSeq.toBlockingSeq
 
-let events = stream.EventsFrom 1L |> AsyncSeq.toBlockingSeq
-
-for e in events do
-  printfn "%d: %A" e.Metadata.StreamVersion e.RecordedEvent
-
+  for e in events do
+    printfn "%d: %A" e.Metadata.StreamVersion e.RecordedEvent
 
 
+let startReading() =
+  let projectionBuilder = new ProjectionBuilder(dataProvider, Serialization.CreateDefaultSerializer<System.Object>())
+  let observable = projectionBuilder.EventStream 38717L 100 (TimeSpan.FromSeconds(1.0))
+  observable.Subscribe(fun evts-> 
+      for e in evts do
+        let typ = e.RecordedEvent.GetType().ToString()
+        printfn "%d: (%s) %A" e.Metadata.CommitVersion typ e.RecordedEvent
+    )
 
+let testSerializer() =
+  let s = serializer.Serialize {Name = "James"; Age = 30L}
+  printfn "%A" s
 
-
+  let d = serializer.Deserialize s
+  printfn "%A" d

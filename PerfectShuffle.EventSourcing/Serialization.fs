@@ -27,7 +27,7 @@ module Serialization =
           (use jsonWriter = new JsonTextWriter(new StreamWriter(ms))
           s.Serialize(jsonWriter, o))
           let data = ms.ToArray()
-          (o.GetType().ToString()),data
+          (o.GetType().AssemblyQualifiedName),data
         with e ->
           let a = e
           raise e
@@ -43,6 +43,8 @@ module Serialization =
       member __.Serialize e =
         let typ,payload = box e |> JsonNet.serialize
         { TypeName = typ; Payload = payload}
-      member __.Deserialize e = 
-        JsonNet.deserialize (typeof<'event>, e.Payload) :?> _
+      member __.Deserialize e =
+        printfn "typename %s" e.TypeName
+        let t = System.Type.GetType(e.TypeName)
+        JsonNet.deserialize (t, e.Payload) :?> _
       }

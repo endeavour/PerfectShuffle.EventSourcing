@@ -16,7 +16,8 @@ module SqlStorage =
     let eventsFrom (streamName:string) (version:int64) = 
       let connection = new SqlConnection(connectionString)
       
-      let batchSize = 1000L
+      let batchSize = 1000
+      
 
       let rec readBatch (start:int64) =
         asyncSeq {
@@ -60,8 +61,10 @@ module SqlStorage =
 
         reader.Close()
 
-        if results.Length = 100
-          then yield! readBatch (start + batchSize)
+        if results.Length = batchSize          
+          then
+            let newStart = if results.Length > 0 then results.[results.Length - 1].Metadata.StreamVersion else start 
+            yield! readBatch newStart
           else connection.Dispose()
         }
 
@@ -147,9 +150,70 @@ module SqlStorage =
           return WriteResult.Choice2Of2 (WriteFailure.WriteException e)
     }
 
+    let getAllEvents fromCommitVersion =
+      let connection = new SqlConnection(connectionString)
+      
+      let batchSize = 1000
+      let maxDelay = TimeSpan.FromSeconds(5.0).TotalMilliseconds
+
+      let rec readBatch (start:int64) =
+        asyncSeq {
+        use cmd = new SqlCommand("usp_GetEvents", connection, CommandType = CommandType.StoredProcedure)
+        printfn "READING FROM %d" start
+        cmd.Parameters.AddWithValue("FromCommitVersion", start) |> ignore
+        cmd.Parameters.AddWithValue("BatchSize", batchSize) |> ignore
+        let! reader = cmd.ExecuteReaderAsync() |> Async.AwaitTask
+        
+        let rec read() =
+          asyncSeq {
+          let! isMore = reader.ReadAsync() |> Async.AwaitTask
+          if isMore then
+            let commitVersion = reader.["CommitVersion"] :?> int64
+            let payload = reader.["Payload"] :?> byte[]
+            let eventType = reader.["EventType"] :?> string
+            let streamVersion = reader.["StreamVersion"] :?> int64
+            let streamName = reader.["StreamName"] :?> string
+            let deduplicationId = reader.["DeduplicationId"] :?> Guid
+            let eventTimestamp = reader.["EventStamp"] :?> DateTime
+            let commitTimestamp = reader.["CommitStamp"] :?> DateTime
+            let metadata = 
+              {
+                TypeName = eventType
+                CommitVersion = commitVersion
+                StreamName = streamName
+                StreamVersion = streamVersion
+                DeduplicationId = deduplicationId
+                EventStamp = eventTimestamp
+                CommitStamp = commitTimestamp
+              }
+            
+            yield { Payload = payload; Metadata = metadata}
+            yield! read()
+          }
+       
+        let! results = read() |> AsyncSeq.toArrayAsync // TODO: Do we really need to do this?
+        
+        for r in results do
+          yield r
+
+        reader.Close()
+        
+        let delay = maxDelay - (maxDelay / float batchSize) * float results.Length
+        do! Async.Sleep (int delay)
+        let newStart = if results.Length > 0 then results.[results.Length - 1].Metadata.CommitVersion else start 
+        printfn "newStart %d" newStart
+        yield! readBatch (newStart)
+        }
+
+      asyncSeq {
+        do! connection.OpenAsync() |> Async.AwaitTask
+        yield! readBatch fromCommitVersion
+      }
+
+
     interface IDataProvider with
       member x.GetAllEvents(fromCommitVersion: int64): AsyncSeq<RawEvent> = 
-        failwith "Not implemented yet"
+        getAllEvents fromCommitVersion
       member x.GetStreamEvents(streamName: string) (fromStreamVersion: int64): AsyncSeq<RawEvent> = 
         eventsFrom streamName fromStreamVersion
       member x.SaveEvents(streamName: string) (concurrencyCheck: WriteConcurrencyCheck) (evts: EventToRecord []): Async<WriteResult> = 

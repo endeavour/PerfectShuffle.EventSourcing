@@ -48,6 +48,7 @@
     <Compile Include="Stream.fs" />
     <Compile Include="EventProcessor.fs" />
     <Compile Include="StreamManager.fs" />
+    <Compile Include="ProjectionBuilder.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <PropertyGroup>

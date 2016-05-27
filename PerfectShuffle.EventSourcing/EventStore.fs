@@ -2,6 +2,7 @@
 
 module Store =
 
+  open PerfectShuffle.EventSourcing
   open System
   open System.Net
   open FSharp.Control
@@ -36,12 +37,6 @@ module Store =
     {
       StartVersion : int64
       Events : EventToRecord[]
-    }
-
-  type RawEvent =
-    {
-      Payload : byte[] 
-      Metadata : RecordedMetadata     
     }
 
   type IAllEventReader =
