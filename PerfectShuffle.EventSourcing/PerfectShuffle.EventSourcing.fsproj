@@ -45,6 +45,7 @@
     <Compile Include="ReadModel.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="EventStore.fs" />
+    <Compile Include="Stream.fs" />
     <Compile Include="EventProcessor.fs" />
     <Compile Include="StreamManager.fs" />
     <None Include="paket.references" />
