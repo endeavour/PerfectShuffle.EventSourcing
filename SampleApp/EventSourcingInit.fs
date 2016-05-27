@@ -57,8 +57,8 @@ module MySampleApp =
       let serializer = Serialization.CreateDefaultSerializer<UserEvent>()
       
       let eventProcessorFactory (stream:IStream<UserEvent>) : IEventProcessor<UserEvent, UserState> =
-        let readModel = SequencedReadModel(UserState.Zero, apply, stream.FirstVersion)
-        EventProcessor<UserEvent, UserState>(readModel, stream) :> IEventProcessor<_,_>
+        let aggregate = SequencedAggregate(UserState.Zero, apply, stream.FirstVersion)
+        EventProcessor<UserEvent, UserState>(aggregate, stream) :> IEventProcessor<_,_>
 
       StreamManager<UserEvent, UserState>(streamFactory, eventProcessorFactory)
 

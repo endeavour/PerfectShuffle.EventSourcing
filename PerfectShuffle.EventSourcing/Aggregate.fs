@@ -4,77 +4,25 @@
 
   type Agent<'t> = MailboxProcessor<'t>
 
-  type Id = System.Guid
-    
-  type SerializedEvent =
-    {
-      TypeName : string
-      Payload : byte[]
-    }
+  type AggregateState<'state> = {State:'state; NextExpectedStreamVersion : int64}
 
-  type EventToRecordMetadata = 
-    {
-      DeduplicationId : Guid 
-      EventStamp : DateTime      
-    }
-
-  type EventToRecord =
-    {
-      SerializedEventToRecord : SerializedEvent
-      Metadata : EventToRecordMetadata
-    }    
-
-  type EventToRecord<'event> = 
-    {      
-      EventToRecord : 'event
-      Metadata : EventToRecordMetadata
-    }
-
-  type RecordedMetadata = 
-    {
-      TypeName : string      
-      CommitVersion : int64
-      StreamName : string
-      StreamVersion : int64
-      DeduplicationId : Guid
-      EventStamp : DateTime
-      CommitStamp : DateTime
-    }
-
-  type RecordedEvent<'event> =
-    {
-      RecordedEvent : 'event
-      Metadata : RecordedMetadata
-    }
-
-  type RawEvent =
-    {
-      Payload : byte[]  //TODO: Use SerializedEvent here instead
-      Metadata : RecordedMetadata     
-    }
-
-  //type EventWithMetadataAndVersion<'event> = {Event : 'event; Metadata : Metadata; Version: int}
-
-
-  type ReadModelState<'state> = {State:'state; NextExpectedStreamVersion : int64}
-
-  type IReadModel<'state, 'event> =
+  type IAggregate<'state, 'event> =
     abstract member Apply : event:'event -> streamVersion:int64 -> Choice<unit,exn>
-    abstract member CurrentState : unit -> ReadModelState<'state>
-    abstract member CurrentStateAsync : unit -> Async<ReadModelState<'state>>
+    abstract member CurrentState : unit -> AggregateState<'state>
+    abstract member CurrentStateAsync : unit -> Async<AggregateState<'state>>
     abstract member Error : IEvent<Handler<exn>, exn>
     abstract member IsOrdered : bool
 
-  type private ReadModelMsg<'TExternalState, 'event> =
+  type private aggregateMsg<'TExternalState, 'event> =
     | Update of 'event * streamVersion:int64 * AsyncReplyChannel<Choice<unit,exn>>
-    | CurrentState of AsyncReplyChannel<ReadModelState<'TExternalState>>
+    | CurrentState of AsyncReplyChannel<AggregateState<'TExternalState>>
 
-  exception ReadModelException of string
+  exception AggregateException of string
 
-  type SequencedReadModel<'state,'event>(initialState, apply, firstVersion) = 
+  type SequencedAggregate<'state,'event>(initialState, apply, firstVersion) = 
     
     let agent =
-      Agent<ReadModelMsg<'state, 'event>>.Start(fun inbox ->
+      Agent<aggregateMsg<'state, 'event>>.Start(fun inbox ->
         let rec loop (nextExpectedStreamVersion:int64) (internalState:'state) =
           async {            
           let! msg = inbox.Receive()
@@ -83,7 +31,7 @@
           | Update(event, streamVersion, replyChannel) ->
             if streamVersion <> nextExpectedStreamVersion
               then
-                replyChannel.Reply (Choice2Of2 <| ReadModelException "Wrong stream version")
+                replyChannel.Reply (Choice2Of2 <| AggregateException "Wrong stream version")
                 return! loop nextExpectedStreamVersion internalState
               else
                 replyChannel.Reply (Choice1Of2 ()) 
@@ -99,19 +47,19 @@
         loop firstVersion initialState
         )
 
-    interface IReadModel<'state, 'event> with  
+    interface IAggregate<'state, 'event> with  
       member __.Apply event streamVersion = agent.PostAndReply (fun reply -> Update(event, streamVersion, reply))
       member __.CurrentState() = agent.PostAndReply(fun reply -> CurrentState(reply))
       member __.CurrentStateAsync() = agent.PostAndAsyncReply(fun reply -> CurrentState(reply))
       member __.Error = agent.Error
       member __.IsOrdered = true
    
-  // This readmodel represents a CRDT
+  // This aggregate represents a CRDT
   // In particular, events might be applied in any order, more than once, and must be idempotent
-  type ConflictFreeReadModel<'state,'event>(initialState, apply, firstVersion) = 
+  type ConflictFreeaggregate<'state,'event>(initialState, apply, firstVersion) = 
     
     let agent =
-      Agent<ReadModelMsg<'state, 'event>>.Start(fun inbox ->
+      Agent<aggregateMsg<'state, 'event>>.Start(fun inbox ->
         let rec loop (nextExpectedStreamVersion:int64) (pending:List<int64>) (internalState:'state) =
           match pending with
           | n::ns when n = nextExpectedStreamVersion ->
@@ -139,7 +87,7 @@
         loop firstVersion [] initialState
         )
 
-    interface IReadModel<'state, 'event> with  
+    interface IAggregate<'state, 'event> with  
       member __.Apply event streamVersion = agent.PostAndReply (fun reply -> Update(event, streamVersion, reply))
       member __.CurrentState() = agent.PostAndReply(fun reply -> CurrentState(reply))
       member __.CurrentStateAsync() = agent.PostAndAsyncReply(fun reply -> CurrentState(reply))

@@ -19,7 +19,7 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
     sprintf "%s-%s" "streams" typeof<'event>.FullName
   let streamOfStreams = streamFactory.CreateStream<StreamEvent> streamOfStreamsName
 
-  let streamOfStreamsReadModel : ConflictFreeReadModel<_,StreamEvent> =
+  let streamOfStreamsaggregate : ConflictFreeaggregate<_,StreamEvent> =
 
     let createEventProcessorForStream name =
       let hashedName = hash name
@@ -32,13 +32,13 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
     let apply state (evt:StreamEvent) =
       match evt with
       | StreamCreated name -> state |> Map.add name (lazy createEventProcessorForStream name)
-    ConflictFreeReadModel<_,_>(Map.empty, apply, streamOfStreams.FirstVersion)
+    ConflictFreeaggregate<_,_>(Map.empty, apply, streamOfStreams.FirstVersion)
 
   let streamOfStreamsEventProcessor =
-    EventProcessor<_, _>(streamOfStreamsReadModel, streamOfStreams) :> IEventProcessor<_,_>
+    EventProcessor<_, _>(streamOfStreamsaggregate, streamOfStreams) :> IEventProcessor<_,_>
 
   // TODO: Change eventprocessor so that is doesn't always enforce concurrency checking
-  // in this case the events are commutative, associative and idempotent so the readmodel shouldn't care which order
+  // in this case the events are commutative, associative and idempotent so the aggregate shouldn't care which order
   // we add StreamCreated events or need to apply concurrency checks when writing to the stream
   let createdStream name =
     
