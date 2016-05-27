@@ -2,7 +2,6 @@ source https://www.nuget.org/api/v2/
 framework >= net45
 redirects: on
 
-nuget EventStore.Client
 nuget Newtonsoft.Json
 nuget FSharpx.Collections
 nuget WindowsAzure.Storage
