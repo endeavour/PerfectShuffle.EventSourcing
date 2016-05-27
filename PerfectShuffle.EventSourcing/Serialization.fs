@@ -2,11 +2,7 @@
 
 module Serialization =
 
-  type SerializedEvent =
-    {
-      TypeName : string
-      Payload : byte[]
-    }
+  
 
   type IEventSerializer<'event> =
     abstract member Serialize : 'event -> SerializedEvent

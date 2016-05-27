@@ -11,13 +11,9 @@ open System
 type MyEvent = {Name : string; Age : int64}
 let serializer = Serialization.CreateDefaultSerializer<MyEvent>()
 
-let evtRespository = SqlStorage.EventRepository<MyEvent>(
-  @"Data Source=(localdb)\mssqllocaldb;Initial Catalog=EventStore;Integrated Security=True",
-  "Order-123",
-  serializer
-  ) 
+let dataProvider = SqlStorage.SqlDataProvider(@"Data Source=(localdb)\mssqllocaldb;Initial Catalog=EventStore;Integrated Security=True")
 
-let iStream = evtRespository :> IStream<MyEvent>
+let stream = SqlStorage.Stream<MyEvent>("Order-123", serializer, dataProvider) :> IStream<_>
 
 let saveEvents () = 
 
@@ -27,18 +23,20 @@ let saveEvents () =
         [|
           {Name = "Bob"; Age=i}
         |]
-      let wrappedEvents = evts |> Array.map (fun x-> {DeduplicationId = Guid.NewGuid(); Timestamp = DateTime.UtcNow; Event = x })
-      let! result = iStream.Save (wrappedEvents) (WriteConcurrencyCheck.NewEventNumber i) 
+      let wrappedEvents : EventToRecord<MyEvent>[] = evts |> Array.map (fun e ->
+        {Metadata = {DeduplicationId = Guid.NewGuid(); EventStamp = DateTime.UtcNow} ; EventToRecord = e})
+
+      let! result = stream.Save wrappedEvents (WriteConcurrencyCheck.NewEventNumber i) 
       printfn "%A" result
   } |> Async.RunSynchronously
 
 
 saveEvents ()
 
-let events = iStream.EventsFrom 1L |> AsyncSeq.toBlockingSeq
+let events = stream.EventsFrom 1L |> AsyncSeq.toBlockingSeq
 
 for e in events do
-  printfn "%d: %A" e.Metadata.StreamVersion e.Event
+  printfn "%d: %A" e.Metadata.StreamVersion e.RecordedEvent
 
 
 

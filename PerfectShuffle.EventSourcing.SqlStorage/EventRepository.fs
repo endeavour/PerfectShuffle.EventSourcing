@@ -11,7 +11,7 @@ module SqlStorage =
   open System.Transactions
   open System.Text
 
-  type SqlDataProvider<'event>(connectionString:string) =
+  type SqlDataProvider(connectionString:string) =
     
     let eventsFrom (streamName:string) (version:int64) = 
       let connection = new SqlConnection(connectionString)
@@ -52,9 +52,9 @@ module SqlStorage =
             yield { Payload = payload; Metadata = metadata}
             yield! read()
           }
-
+       
         let! results = read() |> AsyncSeq.toArrayAsync // TODO: Do we really need to do this?
-
+        
         for r in results do
           yield r
 
@@ -78,7 +78,7 @@ module SqlStorage =
           else exn
       | e -> e     
 
-    let commit (concurrencyCheck:WriteConcurrencyCheck) (evts:EventToRecord<'event>[]) = async {
+    let commit (streamName:string) (concurrencyCheck:WriteConcurrencyCheck) (evts:EventToRecord[]) = async {
 
       use dt = new DataTable()      
       let cols =
@@ -94,15 +94,14 @@ module SqlStorage =
       cols |> Seq.iter (dt.Columns.Add >> ignore)
 
       evts
-      |> Seq.mapi (fun i evt ->
-          let serializedEvent = serializer.Serialize evt.Event
+      |> Seq.mapi (fun i evt ->          
           let row = dt.NewRow()
           row.["SeqNumber"] <- i
-          row.["DeduplicationId"] <- evt.DeduplicationId
-          row.["EventType"] <- serializedEvent.TypeName
+          row.["DeduplicationId"] <- evt.Metadata.DeduplicationId
+          row.["EventType"] <- evt.SerializedEventToRecord.TypeName
           row.["Headers"] <- ([||] : byte[]) // TODO!
-          row.["Payload"] <- serializedEvent.Payload
-          row.["EventStamp"] <- evt.Timestamp
+          row.["Payload"] <- evt.SerializedEventToRecord.Payload
+          row.["EventStamp"] <- evt.Metadata.EventStamp
           row
         )
       |> Seq.iter dt.Rows.Add
@@ -152,9 +151,9 @@ module SqlStorage =
       member x.GetAllEvents(fromCommitVersion: int64): AsyncSeq<RawEvent> = 
         failwith "Not implemented yet"
       member x.GetStreamEvents(streamName: string) (fromStreamVersion: int64): AsyncSeq<RawEvent> = 
-        failwith "Not implemented yet"
-      member x.SaveEvents(streamName: string) (events: RawEvent []) (arg1: WriteConcurrencyCheck): Async<WriteResult> = 
-        failwith "Not implemented yet"
+        eventsFrom streamName fromStreamVersion
+      member x.SaveEvents(streamName: string) (concurrencyCheck: WriteConcurrencyCheck) (evts: EventToRecord []): Async<WriteResult> = 
+        commit streamName concurrencyCheck evts
 
   type Stream<'event>(streamName:string, serializer : Serialization.IEventSerializer<'event>, dataProvider:IDataProvider) =
   
@@ -162,10 +161,19 @@ module SqlStorage =
       dataProvider.GetStreamEvents streamName version
       |> AsyncSeq.map (fun rawEvent ->
             let event = serializer.Deserialize({TypeName = rawEvent.Metadata.TypeName; Payload = rawEvent.Payload})                        
-            { Event = event; Metadata = rawEvent.Metadata}
+            { RecordedEvent = event; Metadata = rawEvent.Metadata}
           )
 
-    let commit 
+    let commit concurrencyCheck (evts:EventToRecord<'event>[]) =
+      let rawEvents =
+        evts
+        |> Array.map(fun evt ->
+          let serializedEvent = evt.EventToRecord |> serializer.Serialize         
+          let rawEvent : EventToRecord = { SerializedEventToRecord = serializedEvent; Metadata = evt.Metadata}
+          rawEvent
+          ) 
+      
+      dataProvider.SaveEvents streamName concurrencyCheck rawEvents
 
     interface IStream<'event> with
       member __.FirstVersion = 1L

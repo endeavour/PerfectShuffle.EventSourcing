@@ -32,6 +32,12 @@ module Store =
       Events : EventToRecord<'event>[]
     }
 
+  type Batch =
+    {
+      StartVersion : int64
+      Events : EventToRecord[]
+    }
+
   type RawEvent =
     {
       Payload : byte[] 
@@ -45,7 +51,7 @@ module Store =
     abstract member GetStreamEvents : streamName:string -> fromStreamVersion:int64 -> AsyncSeq<RawEvent>
 
   type IStreamWriter =
-    abstract member SaveEvents<'event> : streamName:string -> batch:Batch<'event> -> WriteConcurrencyCheck -> Async<WriteResult>
+    abstract member SaveEvents<'event> : streamName:string -> WriteConcurrencyCheck -> EventToRecord[] -> Async<WriteResult>
 
   type IDataProvider =
     inherit IAllEventReader
@@ -55,6 +61,6 @@ module Store =
   type IStream<'event> =
     abstract member FirstVersion : int64
     abstract member EventsFrom : version:int64 -> AsyncSeq<RecordedEvent<'event>>
-    abstract member Save : events:EventToRecord<'event>[] -> WriteConcurrencyCheck -> Async<WriteResult>
+    abstract member Save : events:EventToRecord<'event>[] -> currencyCheck:WriteConcurrencyCheck -> Async<WriteResult>
 
  

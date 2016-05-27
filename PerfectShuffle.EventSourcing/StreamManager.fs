@@ -41,10 +41,13 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
   // in this case the events are commutative, associative and idempotent so the readmodel shouldn't care which order
   // we add StreamCreated events or need to apply concurrency checks when writing to the stream
   let createdStream name =
+    
+    let metaData : EventToRecordMetadata = {DeduplicationId = Guid.NewGuid(); EventStamp = DateTime.UtcNow}
+
     async {    
     let evts =
       [|
-        {DeduplicationId = Guid.NewGuid(); Timestamp = DateTime.UtcNow; Event = StreamCreated name }
+        {EventToRecord = StreamCreated name; Metadata = {DeduplicationId = Guid.NewGuid(); EventStamp = DateTime.UtcNow}}
       |]
     let! streams = streamOfStreamsEventProcessor.ExtendedState()    
     let batch : Batch<_> = {StartVersion = streams.NextExpectedStreamVersion; Events = evts}

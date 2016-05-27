@@ -5,15 +5,29 @@
   type Agent<'t> = MailboxProcessor<'t>
 
   type Id = System.Guid
-  
-  
-  //type Metadata = {Id : Id; Timestamp : System.DateTime}
+    
+  type SerializedEvent =
+    {
+      TypeName : string
+      Payload : byte[]
+    }
+
+  type EventToRecordMetadata = 
+    {
+      DeduplicationId : Guid 
+      EventStamp : DateTime      
+    }
+
+  type EventToRecord =
+    {
+      SerializedEventToRecord : SerializedEvent
+      Metadata : EventToRecordMetadata
+    }    
 
   type EventToRecord<'event> = 
-    {
-      DeduplicationId : Id; 
-      Timestamp : DateTime      
-      Event : 'event
+    {      
+      EventToRecord : 'event
+      Metadata : EventToRecordMetadata
     }
 
   type RecordedMetadata = 
@@ -29,7 +43,7 @@
 
   type RecordedEvent<'event> =
     {
-      Event : 'event
+      RecordedEvent : 'event
       Metadata : RecordedMetadata
     }
 
