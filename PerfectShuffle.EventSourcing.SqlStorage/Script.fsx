@@ -18,7 +18,7 @@ let stream = Stream<MyEvent>("Order-123", serializer, dataProvider) :> IStream<_
 let saveEvents () = 
 
   async {
-    for i = 1L to 1000L do
+    for i = 1002L to 2000L do
       let evts =
         [|
           {Name = "Bob"; Age=i}
@@ -40,7 +40,7 @@ let readStreamEvents() =
 
 let startReading() =
   let projectionBuilder = new ProjectionBuilder(dataProvider, Serialization.CreateDefaultSerializer<System.Object>())
-  let observable = projectionBuilder.EventStream 38717L 100 (TimeSpan.FromSeconds(1.0))
+  let observable = projectionBuilder.EventStream 0L 100 (TimeSpan.FromSeconds(1.0))
   observable.Subscribe(fun evts-> 
       for e in evts do
         let typ = e.RecordedEvent.GetType().ToString()

@@ -88,7 +88,7 @@ AS
 	from [dbo].[Commit] c 
 	where 
 	c.[StreamName] = @StreamName and 
-	c.[StreamVersion] > @FromStreamVersion
+	c.[StreamVersion] >= @FromStreamVersion
 GO
 
 CREATE PROCEDURE [dbo].[usp_GetEvents]	
@@ -107,6 +107,6 @@ AS
 		c.[CommitStamp] 
 	from [dbo].[Commit] c 
 	where 	
-	c.[CommitVersion] > @FromCommitVersion
+	c.[CommitVersion] >= @FromCommitVersion
 
 GO

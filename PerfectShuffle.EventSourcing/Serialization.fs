@@ -44,7 +44,6 @@ module Serialization =
         let typ,payload = box e |> JsonNet.serialize
         { TypeName = typ; Payload = payload}
       member __.Deserialize e =
-        printfn "typename %s" e.TypeName
         let t = System.Type.GetType(e.TypeName)
         JsonNet.deserialize (t, e.Payload) :?> _
       }
