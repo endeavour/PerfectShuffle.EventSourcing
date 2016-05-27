@@ -95,37 +95,3 @@ module Main =
     System.Console.ReadKey() |> ignore
     printfn "%A" argv
     0 // return an integer exit code
-//
-//      
-  //    let eventProcessor = SampleApp.MySampleApp.initialiseEventProcessor()   
-
-  //    while true do
-  //      System.Console.ReadKey() |> ignore
-  //      async {
-  //      let email = sprintf "%d@test.com" System.DateTime.UtcNow.Ticks
-  //
-  //      let evts =
-  //        [|
-  //        for i = 1 to 1 do
-  //          let name = sprintf "Test %d" i
-  //          yield
-  //            SampleApp.Events.UserCreated {Name = name; Email=email; Password="letmein"; Company = "Acme Corp"}
-  //            |> EventWithMetadata<_>.Wrap 
-  //        |]
-  //
-  //      let sw = System.Diagnostics.Stopwatch.StartNew()
-  //
-  //      let! state = eventProcessor.ExtendedState()
-  //      let batch = { StartVersion = state.NextExpectedStreamVersion; Events = evts }       
-  //      let! persistResult = eventProcessor.Persist batch
-  //      match persistResult  with
-  //      | Choice1Of2 currentState ->
-  //        let users = currentState.State.Users
-  //          
-  //        printfn "Current users: %d" users.Count
-  ////        for user in users do
-  ////          printfn "%A" user.Value
-  //      | Choice2Of2 e ->
-  //        printfn "Something went terribly wrong: %A" e
-  //      printfn "TIME to insert %d events: %dms" evts.Length sw.ElapsedMilliseconds
-  //      } |> Async.RunSynchronously      
