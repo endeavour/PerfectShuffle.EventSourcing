@@ -27,18 +27,6 @@ module Store =
 
   type WriteResult = Choice<WriteSuccess, WriteFailure>
 
-  type Batch<'event> =
-    {
-      StartVersion : int64
-      Events : EventToRecord<'event>[]
-    }
-
-  type Batch =
-    {
-      StartVersion : int64
-      Events : EventToRecord[]
-    }
-
   type IAllEventReader =
     abstract member GetAllEvents : fromCommitVersion:int64 -> AsyncSeq<RawEvent>
 

@@ -43,8 +43,8 @@ module MySampleApp =
 
   let getUserStreamManager() =    
 
-    let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("pseventstoretest", "xvCdGoD7d/F6dCPFRUH4KxMIidezDD01mB1Gc/Ducdkzn3wJqRts+lSgPDWCAL8Wc+RnlBPmGGrscPR2Ba/VHg==")
-              
+    let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("YOUR_STORAGE_ACCOUNT_HERE", "YOUR_KEY_HERE")
+
     let userStreamManager =
       
       let streamFactory =
@@ -52,9 +52,10 @@ module MySampleApp =
         { new IStreamFactory with
             member __.CreateStream<'event> name =
               let serializer = Serialization.CreateDefaultSerializer<'event>()
-              new PerfectShuffle.EventSourcing.AzureTableStorage.AzureTableStream<'event>(credentials, name, "mypartition", serializer) :> Store.IStream<_>}
-      
-      let serializer = Serialization.CreateDefaultSerializer<UserEvent>()
+              let dataProvider = new PerfectShuffle.EventSourcing.AzureTableStorage.AzureTableStorage.AzureTableDataProvider(credentials, "TestEventStore2")
+              let stream = Stream(1L, name, serializer, dataProvider) :> IStream<_>
+              stream
+              }
       
       let eventProcessorFactory (stream:IStream<UserEvent>) : IEventProcessor<UserEvent, UserState> =
         let aggregate = SequencedAggregate(UserState.Zero, apply, stream.FirstVersion)

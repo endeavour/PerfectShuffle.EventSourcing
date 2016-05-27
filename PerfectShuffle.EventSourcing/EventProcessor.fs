@@ -7,6 +7,12 @@ type PersistenceFailure =
 | WriteFailure of WriteFailure
 | AggregateException of exn
 
+type Batch<'event> =
+  {
+    StartVersion : int64
+    Events : EventToRecord<'event>[]
+  }
+
 type private Msg<'event, 'state> =
 | ReadLatestFromStore
 | Persist of Batch<'event> * AsyncReplyChannel<Choice<AggregateState<'state>,PersistenceFailure>>

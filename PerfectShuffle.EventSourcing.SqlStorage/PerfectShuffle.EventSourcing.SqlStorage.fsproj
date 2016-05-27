@@ -47,7 +47,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="EventRepository.fs" />
+    <Compile Include="DataProvider.fs" />
     <None Include="Script.fsx" />
     <None Include="Database.sql" />
     <None Include="Scripts\load-references-debug.fsx" />
