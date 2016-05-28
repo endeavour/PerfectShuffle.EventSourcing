@@ -1,0 +1,5 @@
+type project
+licenseUrl http://creativecommons.org/licenses/by/3.0/
+authors James Freiwirth, Daniel Ryan
+description
+  A provider for MS SQL Server for the Perfect Shuffle Eventsourcing Library
