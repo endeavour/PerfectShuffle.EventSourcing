@@ -217,14 +217,19 @@ module SqlStorage =
       readBatched fromStreamVersion batchSize openConn getReader hasMore readRow closeReader getNextStart closeConn
 
     interface IAllEventReader with
-      member x.GetAllEvents(fromCommitVersion: int64): AsyncSeq<RawEvent> = 
+
+      member __.GetAllEvents(fromCommitVersion: int64): AsyncSeq<RawEvent> = 
         getAllEvents fromCommitVersion
 
     interface IStreamDataProvider with
-      member x.GetStreamEvents(streamName: string) (fromStreamVersion: int64): AsyncSeq<RawEvent> = 
+      
+      member __.GetStreamEvents(streamName: string) (fromStreamVersion: int64): AsyncSeq<RawEvent> = 
         getStreamEvents streamName fromStreamVersion
-      member x.SaveEvents(streamName: string) (concurrencyCheck: WriteConcurrencyCheck) (evts: EventToRecord []): Async<WriteResult> = 
+      
+      member __.SaveEvents(streamName: string) (concurrencyCheck: WriteConcurrencyCheck) (evts: EventToRecord []): Async<WriteResult> = 
         commit streamName concurrencyCheck evts
+
+      member __.FirstVersion = 1L
 
   
 

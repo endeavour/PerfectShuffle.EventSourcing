@@ -40,7 +40,6 @@ module MySampleApp =
 
   exception EventProcessorException of exn
 
-
   let getUserStreamManager() =    
 
     let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("YOUR_STORAGE_ACCOUNT_HERE", "YOUR_KEY_HERE")
@@ -52,8 +51,8 @@ module MySampleApp =
         { new IStreamFactory with
             member __.CreateStream<'event> name =
               let serializer = Serialization.CreateDefaultSerializer<'event>()
-              let dataProvider = new PerfectShuffle.EventSourcing.AzureTableStorage.AzureTableStorage.AzureTableDataProvider(credentials, "TestEventStore2")
-              let stream = Stream(1L, name, serializer, dataProvider) :> IStream<_>
+              let dataProvider = new PerfectShuffle.EventSourcing.AzureTableStorage.AzureTableStorage.AzureTableDataProvider(credentials, "TestEventStore4")
+              let stream = Stream(name, serializer, dataProvider) :> IStream<_>
               stream
               }
       

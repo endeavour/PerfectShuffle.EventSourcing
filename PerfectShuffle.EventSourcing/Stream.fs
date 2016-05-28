@@ -3,7 +3,7 @@
 open Store
 open FSharp.Control
 
-type Stream<'event>(firstVersion : int64, streamName:string, serializer : Serialization.IEventSerializer<'event>, dataProvider:IStreamDataProvider) =
+type Stream<'event>(streamName:string, serializer : Serialization.IEventSerializer<'event>, dataProvider:IStreamDataProvider) =
   
   let eventsFrom version =
     dataProvider.GetStreamEvents streamName version
@@ -24,6 +24,6 @@ type Stream<'event>(firstVersion : int64, streamName:string, serializer : Serial
     dataProvider.SaveEvents streamName concurrencyCheck rawEvents
 
   interface IStream<'event> with
-    member __.FirstVersion = firstVersion
+    member __.FirstVersion = dataProvider.FirstVersion
     member __.EventsFrom version = eventsFrom version
     member __.Save evts concurrencyCheck = commit concurrencyCheck evts
