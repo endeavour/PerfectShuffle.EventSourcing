@@ -36,8 +36,7 @@ module Store =
   type IStreamWriter =
     abstract member SaveEvents<'event> : streamName:string -> WriteConcurrencyCheck -> EventToRecord[] -> Async<WriteResult>
 
-  type IDataProvider =
-    inherit IAllEventReader
+  type IStreamDataProvider =
     inherit IStreamReader
     inherit IStreamWriter
 

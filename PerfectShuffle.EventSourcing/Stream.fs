@@ -3,7 +3,7 @@
 open Store
 open FSharp.Control
 
-type Stream<'event>(firstVersion : int64, streamName:string, serializer : Serialization.IEventSerializer<'event>, dataProvider:IDataProvider) =
+type Stream<'event>(firstVersion : int64, streamName:string, serializer : Serialization.IEventSerializer<'event>, dataProvider:IStreamDataProvider) =
   
   let eventsFrom version =
     dataProvider.GetStreamEvents streamName version

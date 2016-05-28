@@ -1,6 +1,6 @@
 ﻿  namespace PerfectShuffle.EventSourcing
   open System
-
+  
   type Id = System.Guid
     
   type SerializedEvent =
@@ -12,7 +12,7 @@
   type EventToRecordMetadata = 
     {
       DeduplicationId : Guid 
-      EventStamp : DateTime      
+      EventStamp : DateTime
     }
 
   type EventToRecord =

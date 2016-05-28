@@ -155,10 +155,10 @@ module AzureTableStorage =
             return result
     }
 
-    interface IDataProvider with
-      member x.GetAllEvents(fromCommitVersion: int64): AsyncSeq<RawEvent> = 
-        raise <| NotImplementedException("Azure table storage does not support ordering across streams")
+    interface IStreamDataProvider with
+
       member x.GetStreamEvents(streamName: string) (fromStreamVersion: int64): AsyncSeq<RawEvent> = 
         getStreamEvents streamName (int fromStreamVersion)
+
       member x.SaveEvents(streamName: string) (concurrencyCheck: WriteConcurrencyCheck) (evts: EventToRecord []): Async<WriteResult> = 
         commit streamName concurrencyCheck evts

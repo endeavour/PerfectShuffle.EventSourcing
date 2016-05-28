@@ -13,7 +13,8 @@ type StreamEvent =
 
 /// Manages a collection of streams for a particular event type
 type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFactory : EventProcessorFactory<'event, 'state>) =
-  
+  let sha256 = System.Security.Cryptography.SHA256.Create()
+
   // Create a stream which tracks creation of other streams with a specific name
   let streamOfStreamsName =
     sprintf "%s-%s" "streams" typeof<'event>.FullName
@@ -37,17 +38,26 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
   let streamOfStreamsEventProcessor =
     EventProcessor<_, _>(streamOfStreamsaggregate, streamOfStreams) :> IEventProcessor<_,_>
 
-  // TODO: Change eventprocessor so that is doesn't always enforce concurrency checking
+  // TODO: Change eventprocessor so that it doesn't always enforce concurrency checking
   // in this case the events are commutative, associative and idempotent so the aggregate shouldn't care which order
   // we add StreamCreated events or need to apply concurrency checks when writing to the stream
-  let createdStream name =
+  let createdStream (name:string) =
+       
+    async {
     
-    let metaData : EventToRecordMetadata = {DeduplicationId = Guid.NewGuid(); EventStamp = DateTime.UtcNow}
+    let createMetadata() : EventToRecordMetadata =
+      
+      let deduplicationId =
+        name
+        |> System.Text.Encoding.UTF8.GetBytes
+        |> sha256.ComputeHash
+        |> Array.truncate 16
+        |> Guid
 
-    async {    
+      {DeduplicationId = Guid.NewGuid(); EventStamp = DateTime.UtcNow}
     let evts =
       [|
-        {EventToRecord = StreamCreated name; Metadata = {DeduplicationId = Guid.NewGuid(); EventStamp = DateTime.UtcNow}}
+        {EventToRecord = StreamCreated name; Metadata = createMetadata()}
       |]
     let! streams = streamOfStreamsEventProcessor.ExtendedState()    
     let batch : Batch<_> = {StartVersion = streams.NextExpectedStreamVersion; Events = evts}
