@@ -8,7 +8,6 @@ module SqlStorage =
   open System
   open System.Data
   open System.Data.SqlClient
-  open System.Transactions
   open System.Text
 
   type SqlDataProvider(connectionString:string) =
@@ -53,7 +52,6 @@ module SqlStorage =
 
       use connection = new SqlConnection(connectionString)
       do! connection.OpenAsync() |> Async.AwaitTask
-      let transactionOptions = TransactionOptions(IsolationLevel = IsolationLevel.ReadCommitted)     
       try
         use cmd = new SqlCommand("usp_StoreEvents", connection, CommandType = CommandType.StoredProcedure)
         cmd.Parameters.AddWithValue("StreamName", streamName) |> ignore
@@ -72,12 +70,7 @@ module SqlStorage =
           
         cmd.Parameters.AddWithValue("EventList", dt) |> ignore
         
-        let ts = new TransactionScope(TransactionScopeOption.Required, transactionOptions, TransactionScopeAsyncFlowOption.Enabled)
-        try
-          do! cmd.ExecuteNonQueryAsync() |> Async.AwaitTask |> Async.Ignore
-          ts.Complete()
-        finally
-          ts.Dispose()
+        do! cmd.ExecuteNonQueryAsync() |> Async.AwaitTask |> Async.Ignore
 
         let endVersion = endVersionOutputParam.Value :?> int64
         return WriteResult.Choice1Of2 (WriteSuccess.StreamVersion endVersion)

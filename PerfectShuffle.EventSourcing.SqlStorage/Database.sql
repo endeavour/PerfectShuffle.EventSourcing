@@ -38,10 +38,11 @@ AS
 
 BEGIN
 	
+	SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 	SET NOCOUNT ON;
+	SET XACT_ABORT ON; -- Turns on rollback if T-SQL statement raises a run-time error.
       
-    BEGIN TRANSACTION
-     
+  BEGIN TRANSACTION
 
 	DECLARE @UniqueEventList dbo.EventList;
 
@@ -63,7 +64,6 @@ BEGIN
 		LEFT JOIN [dbo].[Commit] em ON (em.[DeduplicationId] = eml.[DeduplicationId])
 		WHERE em.[DeduplicationId] IS NULL
 		ORDER BY eml.[SeqNumber] ASC
-			
 
 	COMMIT TRANSACTION
 
