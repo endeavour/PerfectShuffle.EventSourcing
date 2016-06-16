@@ -2,4 +2,4 @@
 #I __SOURCE_DIRECTORY__
 #load "load-references-debug.fsx"
 #load "../AssemblyInfo.fs"
-      "../EventRepository.fs"
+      "../DataProvider.fs"

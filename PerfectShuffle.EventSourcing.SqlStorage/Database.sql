@@ -50,17 +50,17 @@ BEGIN
 
 	DECLARE @StartIndex BIGINT
 
-	SELECT @StartIndex = ISNULL(MAX([StreamVersion]), 0) FROM [Commit] WHERE [StreamName] = @StreamName		
-	SELECT @EndVersion = @StartIndex + Count([SeqNumber]) FROM @EventList
+	SELECT @StartIndex = ISNULL(MAX([StreamVersion] + 1), 1) FROM [Commit] WHERE [StreamName] = @StreamName		
+	SELECT @EndVersion = @StartIndex + Count([SeqNumber]) - 1 FROM @EventList
 
-	IF @ExpectedStartVersion IS NOT NULL AND @StartIndex + 1 <> @ExpectedStartVersion 		
+	IF @ExpectedStartVersion IS NOT NULL AND @StartIndex <> @ExpectedStartVersion + 1	
 	BEGIN
 		THROW 53001, 'Unexpected start index', 1;
 	END
 	ELSE
 		--Insert Event
 		INSERT INTO [dbo].[Commit] ([StreamName], [StreamVersion], [DeduplicationId], [EventType], [Headers], [Payload], [EventStamp])
-		SELECT @StreamName, eml.[SeqNumber] + @StartIndex + 1, eml.[DeduplicationId], eml.EventType, eml.Headers, eml.PayLoad, eml.EventStamp FROM @EventList eml
+		SELECT @StreamName, @StartIndex + eml.[SeqNumber] , eml.[DeduplicationId], eml.EventType, eml.Headers, eml.PayLoad, eml.EventStamp FROM @EventList eml
 		LEFT JOIN [dbo].[Commit] em ON (em.[DeduplicationId] = eml.[DeduplicationId])
 		WHERE em.[DeduplicationId] IS NULL
 		ORDER BY eml.[SeqNumber] ASC
