@@ -15,7 +15,7 @@ module Serialization =
           
       let s = new JsonSerializer()
       
-      s.ContractResolver <- CamelCasePropertyNamesContractResolver ()      
+      s.ContractResolver <- Newtonsoft.Json.Serialization.DefaultContractResolver ()      
       s.Formatting <- Formatting.Indented
       s.NullValueHandling <- NullValueHandling.Ignore
            
