@@ -7,7 +7,7 @@ open Serialization
 
 type ProjectionBuilder(allEventsReader:IAllEventReader, serializer:IEventSerializer<obj>) =
   
-  let read startCommitVersion batchSize (maxTimeToBuffer:TimeSpan) : IObservable<RecordedEvent<obj>[]> =
+  let read startCommitVersion batchSize (maxTimeToBuffer:TimeSpan) : IObservable<RecordedEvent<obj>> =
 
     allEventsReader.GetAllEvents startCommitVersion
     |> AsyncSeq.map (fun rawEvent ->
@@ -16,7 +16,6 @@ type ProjectionBuilder(allEventsReader:IAllEventReader, serializer:IEventSeriali
       let recordedEvent = {RecordedEvent = evt; Metadata = rawEvent.Metadata}
       recordedEvent
       )
-    |> AsyncSeq.bufferByCountAndTime batchSize (int maxTimeToBuffer.TotalMilliseconds)
     |> AsyncSeq.toObservable
 
   member __.EventStream startCommitVersion batchSize maxTimeToBuffer = read startCommitVersion batchSize maxTimeToBuffer

@@ -140,6 +140,7 @@ module SqlStorage =
     let closeReader (reader:SqlDataReader) =
       async {
       reader.Close()
+      reader.Dispose()
       }
 
     let closeConn (conn:SqlConnection) =
