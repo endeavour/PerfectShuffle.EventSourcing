@@ -10,7 +10,7 @@ module SqlStorage =
   open System.Data.SqlClient
   open System.Text
 
-  type SqlDataProvider(connectionString:string) =
+  type SqlDataProvider(connectionString:string, maxPollingDelay:System.TimeSpan) =
     
     let rec getInnerException (exn:Exception) =
       match exn with
@@ -173,14 +173,15 @@ module SqlStorage =
 
     let getAllEvents fromCommitVersion =
 
+      let maxDelay = maxPollingDelay.TotalMilliseconds
+
       let getReader (start:int64) connection =
         use cmd = new SqlCommand("usp_GetEvents", connection, CommandType = CommandType.StoredProcedure)
         cmd.Parameters.AddWithValue("FromCommitVersion", start) |> ignore
         cmd.Parameters.AddWithValue("BatchSize", batchSize) |> ignore
         cmd.ExecuteReaderAsync() |> Async.AwaitTask      
 
-      let getNextStart (lastStart:int64) (batch:RawEvent[]) =
-        let maxDelay = TimeSpan.FromSeconds(5.0).TotalMilliseconds
+      let getNextStart (lastStart:int64) (batch:RawEvent[]) =        
         async {
         let delay = maxDelay - (maxDelay / float batchSize) * float batch.Length
         do! Async.Sleep (int delay)
