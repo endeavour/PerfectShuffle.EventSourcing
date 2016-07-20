@@ -110,6 +110,7 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
       loop()
       )
   
+  let errorSub = agent.Error.Subscribe(fun e -> System.Environment.FailFast("Unhandled exception in event processor", e))  
   do agent.Post ReadLatestFromStore
 
   interface IEventProcessor<'event, 'state> with
