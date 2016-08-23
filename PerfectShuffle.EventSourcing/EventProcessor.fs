@@ -98,11 +98,16 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
             return! loop()
         | ReadLatestFromStore ->
           printfn "Reading latest"
-          do! readEventsFromStore() |> AsyncSeq.iter (fun item ->
-          printfn "Applying an item"
-          match aggregate.Apply item.RecordedEvent item.Metadata.StreamVersion with
-          | Choice1Of2 _ -> printfn "Applied event %d" item.Metadata.StreamVersion
-          | Choice2Of2 e -> printfn "%A" e)  
+          let! agg = aggregate.CurrentStateAsync()
+          do! readEventsFromStore()
+            // TODO: Split out concepts of 'NEVER READ' and 'FIRST VERSION' so that we don't read DB unnecessarily
+            |> AsyncSeq.filter (fun item -> item.Metadata.StreamVersion >= agg.NextExpectedStreamVersion)
+            |> AsyncSeq.iter (fun item ->
+            
+            printfn "Applying an item"
+            match aggregate.Apply item.RecordedEvent item.Metadata.StreamVersion with
+            | Choice1Of2 _ -> printfn "Applied event %d" item.Metadata.StreamVersion
+            | Choice2Of2 e -> printfn "%A" e)  
           printfn "Up to date"
           return! loop()        
         | Exit -> ()        

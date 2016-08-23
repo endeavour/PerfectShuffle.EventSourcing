@@ -78,6 +78,16 @@
       <Project>{41199845-254e-4f31-90cd-b49493b38f84}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\PerfectShuffle.EventSourcing.InMemory\PerfectShuffle.EventSourcing.InMemory.fsproj">
+      <Name>PerfectShuffle.EventSourcing.InMemory</Name>
+      <Project>{df0b6ffd-83c2-4712-827a-2a81e404a3e0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\PerfectShuffle.EventSourcing.SqlStorage\PerfectShuffle.EventSourcing.SqlStorage.fsproj">
+      <Name>PerfectShuffle.EventSourcing.SqlStorage</Name>
+      <Project>{2d09a8d6-0eba-4eec-b3c2-c252150e3db2}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj">
       <Name>PerfectShuffle.EventSourcing</Name>
       <Project>{4f9159c3-062e-4cfc-8ccc-87a6c8265e61}</Project>
@@ -85,17 +95,6 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="..\.paket\paket.targets" />
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1' Or $(TargetFrameworkVersion) == 'v4.6.2')">
-      <ItemGroup>
-        <Reference Include="EventStore.ClientAPI">
-          <HintPath>..\packages\EventStore.Client\lib\net40\EventStore.ClientAPI.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1' Or $(TargetFrameworkVersion) == 'v4.6.2')">
       <ItemGroup>

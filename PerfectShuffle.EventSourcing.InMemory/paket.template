@@ -1,0 +1,6 @@
+type project
+licenseUrl http://creativecommons.org/licenses/by/3.0/
+authors James Freiwirth
+description
+  An in-memory provider for the Perfect Shuffle Eventsourcing Library.
+  Events are not persisted so not usually suitable for production but can be useful for unit testing.

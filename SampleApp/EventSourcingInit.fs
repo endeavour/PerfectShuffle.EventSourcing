@@ -40,25 +40,29 @@ module MySampleApp =
 
   exception EventProcessorException of exn
 
-  let getUserStreamManager() =    
+  let dataProvider = new PerfectShuffle.EventSourcing.InMemory.InMemory.InMemoryDataProvider()
+  // let dataProvider = new PerfectShuffle.EventSourcing.SqlStorage.SqlStorage.SqlDataProvider("""CONNECTION_STRING""", System.TimeSpan.FromSeconds(5.0))
 
-    let credentials = Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("YOUR_STORAGE_ACCOUNT_HERE", "YOUR_KEY_HERE")
+  let streamFactory =
+        
+    { new IStreamFactory with
+        member __.CreateStream<'event> name =
+          let serializer = Serialization.CreateDefaultSerializer<'event>()      
+          let stream = Stream(name, serializer, dataProvider) :> IStream<_>
+          stream
+          }
+
+  let eventProcessorFactory (stream:IStream<UserEvent>) : IEventProcessor<UserEvent, UserState> =
+    let aggregate = SequencedAggregate(UserState.Zero, apply, stream.FirstVersion)
+    EventProcessor<UserEvent, UserState>(aggregate, stream) :> IEventProcessor<_,_>
+
+  let getUserStreamManager() =    
 
     let userStreamManager =
       
-      let streamFactory =
-        
-        { new IStreamFactory with
-            member __.CreateStream<'event> name =
-              let serializer = Serialization.CreateDefaultSerializer<'event>()
-              let dataProvider = new PerfectShuffle.EventSourcing.AzureTableStorage.AzureTableStorage.AzureTableDataProvider(credentials, "TestEventStore4")
-              let stream = Stream(name, serializer, dataProvider) :> IStream<_>
-              stream
-              }
+
+
       
-      let eventProcessorFactory (stream:IStream<UserEvent>) : IEventProcessor<UserEvent, UserState> =
-        let aggregate = SequencedAggregate(UserState.Zero, apply, stream.FirstVersion)
-        EventProcessor<UserEvent, UserState>(aggregate, stream) :> IEventProcessor<_,_>
 
       StreamManager<UserEvent, UserState>(streamFactory, eventProcessorFactory)
 
