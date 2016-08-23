@@ -13,6 +13,7 @@ module InMemory =
   type internal Msg =
   | SaveEvents of streamName:string * concurrencyCheck: WriteConcurrencyCheck * evts: EventToRecord [] * replyChannel:AsyncReplyChannel<WriteResult>
   | GetStreamEvents of streamName: string * fromStreamVersion: int64 * replyChannel:AsyncReplyChannel<AsyncSeq<RawEvent>>
+  | GetAllEvents of fromCommitVersion:int64 * replyChannel:AsyncReplyChannel<AsyncSeq<RawEvent>>
 
   /// Implementation of an non-persistent event repository that keeps everything in memory
   /// for the purpose of unit testing
@@ -29,13 +30,27 @@ module InMemory =
       MailboxProcessor<_>.Start(fun inbox ->
         
         let conj x y = PersistentVector.conj y x
+        let evtStream = Event<RawEvent>()
 
-        let rec loop (streams:Map<string, Stream<RawEvent>>) (commitVersion:int64) =
+        let rec loop (streams:Map<string, Stream<RawEvent>>) (allEvents:Stream<RawEvent>) (commitVersion:int64) =
           async {
           let! msg = inbox.Receive()
           match msg with
+          | GetAllEvents (fromCommitVersion, replyChannel) ->
+            let existingEvents =
+              asyncSeq {
+              for evt in allEvents do
+                yield evt
+              }
+            let futureEvents =
+              evtStream.Publish
+              |> AsyncSeq.ofObservableBuffered
+            let allEventStream =
+              AsyncSeq.append existingEvents futureEvents
+              |> AsyncSeq.skipWhile (fun x -> x.Metadata.CommitVersion < fromCommitVersion)
+            replyChannel.Reply (allEventStream)
+            return! loop streams allEvents commitVersion
           | GetStreamEvents (streamName, fromStreamVersion, replyChannel) ->
-            printfn "STREAM %s" streamName
             let result =
               match streams.TryFind streamName with
               | None -> AsyncSeq.empty
@@ -45,7 +60,7 @@ module InMemory =
                   yield evt
                 }
             replyChannel.Reply result
-            return! loop streams commitVersion
+            return! loop streams allEvents commitVersion
 
           | SaveEvents (streamName, concurrencyCheck, events, replyChannel) ->    
             
@@ -67,43 +82,62 @@ module InMemory =
                 })
                       
             match concurrencyCheck with
-            | WriteConcurrencyCheck.Any ->
+            | WriteConcurrencyCheck.Any ->              
               let stream = streams |> Map.tryFind streamName |> withDefault (Stream.Empty())
-              let updatedStream = rawEvents (int64 stream.Length) |> Seq.fold conj stream
+              let rawEvents = rawEvents (int64 stream.Length)
+              let updatedAllStream = rawEvents |> Seq.fold conj allEvents
+              let updatedStream = rawEvents |> Seq.fold conj stream
               let newStreams =
                 streams.Add(streamName, updatedStream)
               replyChannel.Reply (WriteResult.Choice1Of2(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
-              return! loop newStreams (commitVersion + int64 events.Length)
+              for evt in rawEvents do
+                evtStream.Trigger evt
+              return! loop newStreams updatedAllStream (commitVersion + int64 events.Length)
             | IsEmptyAndBindZero n | WriteConcurrencyCheck.NewEventNumber n ->
               let stream = streams |> Map.tryFind streamName
               match stream with
               | Some s when s.Length - 1 = int n ->                
-                let updatedStream = rawEvents (int64 s.Length) |> Seq.fold conj s
+                let rawEvents = rawEvents (int64 s.Length)
+                let updatedStream = rawEvents |> Seq.fold conj s
+                let updatedAllStream = rawEvents |> Seq.fold conj allEvents
+
                 let newStreams =
                   streams.Add(streamName, updatedStream)
                 replyChannel.Reply (WriteResult.Choice1Of2(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
-                return! loop newStreams (commitVersion + int64 events.Length)      
+                for evt in rawEvents do
+                  evtStream.Trigger evt
+                return! loop newStreams updatedAllStream (commitVersion + int64 events.Length)      
               | None ->
-                let updatedStream = rawEvents (int64 0L) |> Seq.fold conj (Stream.Empty())
+                let rawEvents = rawEvents (int64 0L)
+                let updatedStream = rawEvents |> Seq.fold conj (Stream.Empty())
+                let updatedAllStream = rawEvents |> Seq.fold conj allEvents
+
                 let newStreams =
                   streams.Add(streamName, updatedStream)
                 replyChannel.Reply (WriteResult.Choice1Of2(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
-                return! loop newStreams (commitVersion + int64 events.Length)                      
+                for evt in rawEvents do
+                  evtStream.Trigger evt
+                return! loop newStreams updatedAllStream (commitVersion + int64 events.Length)                      
               | _ ->
                 replyChannel.Reply (WriteResult.Choice2Of2(WriteFailure.ConcurrencyCheckFailed))
-                return! loop streams commitVersion
+                return! loop streams allEvents commitVersion
             | WriteConcurrencyCheck.NoStream ->
               let stream = streams |> Map.tryFind streamName
               match stream with
               | None ->                
-                let updatedStream = rawEvents 0L |> Seq.fold conj (Stream.Empty())
+                let rawEvents = rawEvents 0L
+                let updatedStream = rawEvents |> Seq.fold conj (Stream.Empty())
+                let updatedAllStream = rawEvents |> Seq.fold conj allEvents
+
                 let newStreams =
                   streams.Add(streamName, updatedStream)
                 replyChannel.Reply (WriteResult.Choice1Of2(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
-                return! loop newStreams (commitVersion + int64 events.Length)      
+                for evt in rawEvents do
+                  evtStream.Trigger evt
+                return! loop newStreams updatedAllStream (commitVersion + int64 events.Length)      
               | _ ->
                 replyChannel.Reply (WriteResult.Choice2Of2(WriteFailure.ConcurrencyCheckFailed))
-                return! loop streams commitVersion
+                return! loop streams allEvents commitVersion
             | WriteConcurrencyCheck.EmptyStream -> failwith "assertion failed"
               
             
@@ -111,9 +145,13 @@ module InMemory =
 
         let streams = Map.empty<string, Stream<RawEvent>>
 
-        loop streams 0L
+        loop streams (Stream.Empty()) 0L
         )
 
+    interface IAllEventReader with
+
+      member __.GetAllEvents(fromCommitVersion: int64): AsyncSeq<RawEvent> = 
+        agent.PostAndReply(fun replyChannel -> GetAllEvents (fromCommitVersion, replyChannel))
   
     interface IStreamDataProvider with
 

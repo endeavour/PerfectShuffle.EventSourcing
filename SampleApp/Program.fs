@@ -76,6 +76,8 @@ module Main =
       nameAndEmails
       |> Seq.map (fun (name,email) -> createAndChangePw name email)
 
+    let all = MySampleApp.dataProvider :> PerfectShuffle.EventSourcing.Store.IAllEventReader
+    all.GetAllEvents 0L |> AsyncSeq.toObservable |> Observable.subscribe (printfn "New Streamed Event: %A") |> ignore<System.IDisposable>
     async {
       
       do! evts |> Async.Parallel |> Async.Ignore
