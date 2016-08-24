@@ -55,10 +55,7 @@ module InMemory =
               match streams.TryFind streamName with
               | None -> AsyncSeq.empty
               | Some evts ->
-                asyncSeq {
-                for evt in evts do
-                  yield evt
-                }
+                evts |> Seq.skipNoFail (int fromStreamVersion) |> AsyncSeq.ofSeq
             replyChannel.Reply result
             return! loop streams allEvents commitVersion
 

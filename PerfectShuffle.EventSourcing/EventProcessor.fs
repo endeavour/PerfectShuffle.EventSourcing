@@ -100,10 +100,7 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
           printfn "Reading latest"
           let! agg = aggregate.CurrentStateAsync()
           do! readEventsFromStore()
-            // TODO: Split out concepts of 'NEVER READ' and 'FIRST VERSION' so that we don't read DB unnecessarily
-            |> AsyncSeq.filter (fun item -> item.Metadata.StreamVersion >= agg.NextExpectedStreamVersion)
-            |> AsyncSeq.iter (fun item ->
-            
+            |> AsyncSeq.iter (fun item ->            
             printfn "Applying an item"
             match aggregate.Apply item.RecordedEvent item.Metadata.StreamVersion with
             | Choice1Of2 _ -> printfn "Applied event %d" item.Metadata.StreamVersion
