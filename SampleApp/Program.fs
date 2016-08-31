@@ -2,6 +2,7 @@
 open System
 open PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing.Store
+open FSharp.Control
 
 module Main =
 
