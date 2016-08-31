@@ -2,7 +2,6 @@ REDIRECTS: ON
 FRAMEWORK: >= NET45
 NUGET
   remote: https://www.nuget.org/api/v2
-  specs:
     FSharp.Control.AsyncSeq (2.0.8)
     FSharp.Core (4.0.0.1)
     FSharpx.Collections (1.14)
@@ -17,6 +16,7 @@ NUGET
     Newtonsoft.Json (8.0.3)
     Streamstone (0.9.8)
       WindowsAzure.Storage (>= 6.1)
+    System.Data.SQLite.Core (1.0.102)
     System.Spatial (5.7)
     WindowsAzure.Storage (7.0)
       Microsoft.Azure.KeyVault.Core (>= 1.0)

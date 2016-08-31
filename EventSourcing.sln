@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{12E7246B-A4E8-4294-AE95-4421BD21E503}"
 	ProjectSection(SolutionItems) = preProject
@@ -18,6 +18,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.SqlStorage", "PerfectShuffle.EventSourcing.SqlStorage\PerfectShuffle.EventSourcing.SqlStorage.fsproj", "{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.InMemory", "PerfectShuffle.EventSourcing.InMemory\PerfectShuffle.EventSourcing.InMemory.fsproj", "{DF0B6FFD-83C2-4712-827A-2A81E404A3E0}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.Sqlite", "PerfectShuffle.EventSourcing.Sqlite\PerfectShuffle.EventSourcing.Sqlite.fsproj", "{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +47,10 @@ Global
 		{DF0B6FFD-83C2-4712-827A-2A81E404A3E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DF0B6FFD-83C2-4712-827A-2A81E404A3E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DF0B6FFD-83C2-4712-827A-2A81E404A3E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
