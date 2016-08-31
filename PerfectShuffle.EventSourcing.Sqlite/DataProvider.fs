@@ -49,8 +49,8 @@ module SqliteStorage =
 		    c.[CommitStamp] 
 	      FROM [Commit] c 
 	      WHERE 	
-	      c.[CommitVersion] >= ?
-        LIMIT ?"""
+	      c.[CommitVersion] >= $commitVersion
+        LIMIT $limit"""
 
     let insertQuery =
       """INSERT INTO [Commit] (
@@ -229,8 +229,8 @@ module SqliteStorage =
 
       let getReader (start:int64) connection =
         use cmd = new SQLiteCommand(getEventsQuery, connection)
-        cmd.Parameters.Add(SQLiteParameter(DbType.Int64, start)) |> ignore
-        cmd.Parameters.Add(SQLiteParameter(DbType.Int32, batchSize)) |> ignore
+        cmd.Parameters.AddWithValue("$commitVersion", start) |> ignore
+        cmd.Parameters.AddWithValue("$limit", batchSize) |> ignore
         cmd.ExecuteReaderAsync() |> Async.AwaitTask      
 
       let getNextStart (lastStart:int64) (batch:RawEvent[]) =        
@@ -250,8 +250,6 @@ module SqliteStorage =
         cmd.Parameters.AddWithValue("$streamVersion", start) |> ignore
         cmd.Parameters.AddWithValue("$limit", batchSize) |> ignore
 
-        //cmd.Parameters.Add(SQLiteParameter(DbType.Int32, int start)) |> ignore
-        //cmd.Parameters.Add(SQLiteParameter(DbType.Int32, batchSize)) |> ignore
         cmd.ExecuteReaderAsync() |> Async.AwaitTask  
 
       let getNextStart (lastStart:int64) (batch:RawEvent[]) =
