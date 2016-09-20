@@ -94,37 +94,53 @@ module SqlStorage =
           (getNextStart : int64 -> 'row[] -> Async<Option<int64>>)
           (closeConn : 'conn -> Async<unit>) =
       
-      let rec readBatch (connection:'conn) (start:int64) =
-        asyncSeq {
-        let! reader = getReader start connection
+      let rec readBatch (start:int64) =
         
-        let rec read() =
+        let rec readBatchAux (start:int64) connection =
+        
           asyncSeq {
-          let! hasMore = hasMore reader
-          if hasMore then
-            let! row = readRow reader            
-            yield row
-            yield! read()
-          }
+          try
+            let! reader = getReader start connection
+        
+            let rec read() =
+              asyncSeq {
+              let! hasMore = hasMore reader
+              if hasMore then
+                let! row = readRow reader            
+                yield row
+                yield! read()
+              }
        
-        let! results = read() |> AsyncSeq.toArrayAsync // TODO: Do we really need to do this?
+            let! results = read() |> AsyncSeq.toArrayAsync // TODO: Do we really need to do this?
         
-        for r in results do
-          yield r
+            for r in results do
+              yield r
 
-        do! closeReader reader
+            do! closeReader reader
 
-        let! newStart = getNextStart start results
+            let! newStart = getNextStart start results
         
-        match newStart with
-        | Some n -> yield! readBatch connection n
-        | None -> do! closeConn connection       
+            match newStart with
+            | Some n -> yield! readBatchAux n connection
+            | None -> do! closeConn connection  
+          with e ->
+            printfn "Error, retrying..."
+            yield!
+              asyncSeq {
+              do! closeConn connection
+              yield! readBatch start     
+              }            
+          }
+
+        asyncSeq {
+          try
+            let! connection = openConn()
+            yield! readBatchAux start connection
+          with e ->
+            yield! readBatch start
         }
 
-      asyncSeq {
-        let! connection = openConn()
-        yield! readBatch connection startVersion
-      }
+      readBatch startVersion
 
     let batchSize = 1000
 
