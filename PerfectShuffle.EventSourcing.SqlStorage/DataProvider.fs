@@ -100,8 +100,7 @@ module SqlStorage =
         
           asyncSeq {
           try
-            let! reader = getReader start connection
-        
+            use! reader = getReader start connection
             let rec read() =
               asyncSeq {
               let! hasMore = hasMore reader
