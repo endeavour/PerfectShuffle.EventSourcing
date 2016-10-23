@@ -23,6 +23,7 @@ type IEventProcessor<'event, 'state> =
   abstract member Persist : Batch<'event> -> Async<Choice<AggregateState<'state>, PersistenceFailure>>
   abstract member ExtendedState : unit -> Async<AggregateState<'state>>
   abstract member State : unit -> Async<'state>
+  abstract member Errors : System.IObservable<exn>
 
 // TODO: This current reads from the position specified by the aggregate which doesn't change for nonsequenced
 // streams so it's inefficient. Either split this class into two (Sequenced/Unsequenced) or factor out the functionality
@@ -112,7 +113,6 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
       loop()
       )
   
-  let errorSub = agent.Error.Subscribe(fun e -> System.Environment.FailFast("Unhandled exception in event processor", e))  
   do agent.Post ReadLatestFromStore
 
   interface IEventProcessor<'event, 'state> with
@@ -129,3 +129,5 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
         let! result = (this :> IEventProcessor<'event, 'state>).ExtendedState()
         return result.State
       }
+
+    member __.Errors : System.IObservable<exn> = agent.Error :> _
