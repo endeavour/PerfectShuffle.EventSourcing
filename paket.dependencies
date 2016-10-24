@@ -2,6 +2,7 @@ source https://www.nuget.org/api/v2/
 framework >= net45
 redirects: on
 
+nuget FAKE
 nuget Newtonsoft.Json
 nuget FSharpx.Collections
 nuget WindowsAzure.Storage
