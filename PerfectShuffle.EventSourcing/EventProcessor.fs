@@ -23,12 +23,11 @@ type IEventProcessor<'event, 'state> =
   abstract member Persist : Batch<'event> -> Async<Choice<AggregateState<'state>, PersistenceFailure>>
   abstract member ExtendedState : unit -> Async<AggregateState<'state>>
   abstract member State : unit -> Async<'state>
-  abstract member Errors : System.IObservable<exn>
 
 // TODO: This current reads from the position specified by the aggregate which doesn't change for nonsequenced
 // streams so it's inefficient. Either split this class into two (Sequenced/Unsequenced) or factor out the functionality
 // for determining where to read from and keep a poiter in the event processor for unordered streams instead of in the aggregate
-type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, stream:Store.IStream<'event>) = 
+type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, stream:Store.IStream<'event>, onError:exn -> unit) = 
   
   let readEventsFromStore() =
     asyncSeq {
@@ -113,6 +112,7 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
       loop()
       )
   
+  let errorsSub = agent.Error.Subscribe onError
   do agent.Post ReadLatestFromStore
 
   interface IEventProcessor<'event, 'state> with
@@ -130,4 +130,7 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
         return result.State
       }
 
-    member __.Errors : System.IObservable<exn> = agent.Error :> _
+  interface System.IDisposable with
+    member __.Dispose() =
+     agent.Post Exit
+     errorsSub.Dispose()

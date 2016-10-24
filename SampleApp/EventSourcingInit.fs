@@ -43,6 +43,8 @@ module MySampleApp =
   let dataProvider = new PerfectShuffle.EventSourcing.InMemory.InMemory.InMemoryDataProvider()
   // let dataProvider = new PerfectShuffle.EventSourcing.SqlStorage.SqlStorage.SqlDataProvider("""CONNECTION_STRING""", System.TimeSpan.FromSeconds(5.0))
 
+  let onError = fun exn -> printfn "%A" exn
+
   let streamFactory =
         
     { new IStreamFactory with
@@ -54,16 +56,13 @@ module MySampleApp =
 
   let eventProcessorFactory (stream:IStream<UserEvent>) : IEventProcessor<UserEvent, UserState> =
     let aggregate = SequencedAggregate(UserState.Zero, apply, stream.FirstVersion)
-    EventProcessor<UserEvent, UserState>(aggregate, stream) :> IEventProcessor<_,_>
+    
+    new EventProcessor<UserEvent, UserState>(aggregate, stream, onError) :> IEventProcessor<_,_>
 
   let getUserStreamManager() =    
 
     let userStreamManager =
       
-
-
-      
-
-      StreamManager<UserEvent, UserState>(streamFactory, eventProcessorFactory)
+      new StreamManager<UserEvent, UserState>(streamFactory, eventProcessorFactory, onError)
 
     userStreamManager

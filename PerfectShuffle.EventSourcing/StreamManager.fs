@@ -12,7 +12,7 @@ type StreamEvent =
 | StreamCreated of name:string
 
 /// Manages a collection of streams for a particular event type
-type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFactory : EventProcessorFactory<'event, 'state>) =
+type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFactory : EventProcessorFactory<'event, 'state>, onError) =
   let sha256 = System.Security.Cryptography.SHA256.Create()
 
   // Create a stream which tracks creation of other streams with a specific name
@@ -36,13 +36,14 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
     ConflictFreeaggregate<_,_>(Map.empty, apply, streamOfStreams.FirstVersion)
 
   let streamOfStreamsEventProcessor =
-    EventProcessor<_, _>(streamOfStreamsaggregate, streamOfStreams) :> IEventProcessor<_,_>
+    new EventProcessor<_, _>(streamOfStreamsaggregate, streamOfStreams, onError)
+ 
 
   // TODO: Change eventprocessor so that it doesn't always enforce concurrency checking
   // in this case the events are commutative, associative and idempotent so the aggregate shouldn't care which order
   // we add StreamCreated events or need to apply concurrency checks when writing to the stream
   let createdStream (name:string) =
-       
+    let streamOfStreamsEventProcessor = streamOfStreamsEventProcessor :> IEventProcessor<_,_>
     async {
     
     let createMetadata() : EventToRecordMetadata =
@@ -65,6 +66,7 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
     }
 
   let rec getEventProcessor name =
+    let streamOfStreamsEventProcessor = streamOfStreamsEventProcessor :> IEventProcessor<_,_>
     async {
     let! streams = streamOfStreamsEventProcessor.State()
     return!
@@ -81,9 +83,14 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
     }
 
   member __.Streams() =
+    let streamOfStreamsEventProcessor = streamOfStreamsEventProcessor :> IEventProcessor<_,_>
     async {
     let! state = streamOfStreamsEventProcessor.State()
     return state |> Map.toSeq |> Seq.map fst |> Seq.toArray
     }
 
   member __.GetEventProcessor (name:string) = getEventProcessor name
+
+  interface IDisposable with
+    member __.Dispose() =
+      (streamOfStreamsEventProcessor :> IDisposable).Dispose()
