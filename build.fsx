@@ -21,6 +21,10 @@ Target "Pack" (fun _ ->
   Paket.Pack (fun settings -> { settings with OutputPath = "./output" })
   )
 
+Target "Push" (fun _ ->
+  Paket.Push (fun settings -> { settings with WorkingDir = "./output"; DegreeOfParallelism = 5; PublishUrl = "https://www.nuget.org/api/v2/package"})
+)
+
 Target "Default" (fun _ ->
   ()
 )
