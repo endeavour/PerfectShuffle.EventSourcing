@@ -18,7 +18,7 @@ Target "BuildApp" (fun _ ->
 )
 
 Target "Pack" (fun _ ->
-  Paket.Pack (fun settings -> { settings with OutputPath = "./output" })
+  Paket.Pack (fun settings -> { settings with OutputPath = "./output"; MinimumFromLockFile=true})
   )
 
 Target "Push" (fun _ ->
