@@ -3,16 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{12E7246B-A4E8-4294-AE95-4421BD21E503}"
-	ProjectSection(SolutionItems) = preProject
-		paket.dependencies = paket.dependencies
-	EndProjectSection
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SampleApp", "SampleApp\SampleApp.fsproj", "{AE3021B8-43CE-4EB9-8F56-7025AE0D107D}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing", "PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj", "{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.AzureTableStorage", "PerfectShuffle.EventSourcing.AzureTableStorage\PerfectShuffle.EventSourcing.AzureTableStorage.fsproj", "{41199845-254E-4F31-90CD-B49493B38F84}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.SqlStorage", "PerfectShuffle.EventSourcing.SqlStorage\PerfectShuffle.EventSourcing.SqlStorage.fsproj", "{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}"
 EndProject
@@ -34,10 +27,6 @@ Global
 		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4F9159C3-062E-4CFC-8CCC-87A6C8265E61}.Release|Any CPU.Build.0 = Release|Any CPU
-		{41199845-254E-4F31-90CD-B49493B38F84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{41199845-254E-4F31-90CD-B49493B38F84}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{41199845-254E-4F31-90CD-B49493B38F84}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{41199845-254E-4F31-90CD-B49493B38F84}.Release|Any CPU.Build.0 = Release|Any CPU
 		{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D09A8D6-0EBA-4EEC-B3C2-C252150E3DB2}.Release|Any CPU.ActiveCfg = Release|Any CPU

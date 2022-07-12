@@ -1,4 +1,4 @@
-﻿#load "Scripts/load-project-debug.fsx"
+﻿#load "References.fsx"
 
 open PerfectShuffle.EventSourcing.SqlStorage
 open PerfectShuffle.EventSourcing
@@ -11,9 +11,8 @@ open System
 type MyEvent = {Name : string; Age : int64}
 let serializer = Serialization.CreateDefaultSerializer<MyEvent>()
 
-let dataProvider = SqlStorage.SqlDataProvider(@"Data Source=(localdb)\mssqllocaldb;Initial Catalog=EventStore;Integrated Security=True")
-
-let stream = Stream<MyEvent>(1L, "Order-123", serializer, dataProvider) :> IStream<_>
+let dataProvider = SqlStorage.SqlDataProvider(@"Data Source=(localdb)\mssqllocaldb;Initial Catalog=EventStore;Integrated Security=True", TimeSpan.FromSeconds (1.0))
+let stream = Stream<MyEvent>("Order-123", serializer, dataProvider) :> IStream<_>
 
 let saveEvents () = 
 

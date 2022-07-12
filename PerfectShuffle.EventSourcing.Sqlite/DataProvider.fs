@@ -7,7 +7,7 @@ open FSharp.Control
 module SqliteStorage =
   open System
   open System.Data
-  open System.Data.SQLite
+  open Microsoft.Data.Sqlite
   open System.Text
 
   type SqliteDataProvider(connectionString:string, maxPollingDelay:System.TimeSpan) =
@@ -84,11 +84,11 @@ module SqliteStorage =
 
     let commit (streamName:string) (concurrencyCheck:WriteConcurrencyCheck) (evts:EventToRecord[]) = async {
 
-      use connection = new SQLiteConnection(connectionString)
+      use connection = new SqliteConnection(connectionString)
       do! connection.OpenAsync() |> Async.AwaitTask
 
-      use streamVersionCmd = new SQLiteCommand(getStreamVersionQuery, connection)
-      streamVersionCmd.Parameters.AddWithValue("$streamName", streamName) |> ignore<SQLiteParameter>
+      use streamVersionCmd = new SqliteCommand(getStreamVersionQuery, connection)
+      streamVersionCmd.Parameters.AddWithValue("$streamName", streamName) |> ignore<SqliteParameter>
       let! result = streamVersionCmd.ExecuteScalarAsync() |> Async.AwaitTask
       let streamVersion =
         match result with
@@ -113,15 +113,15 @@ module SqliteStorage =
           let cmds =
             evts
             |> Seq.mapi (fun i evt ->
-              let cmd = new SQLiteCommand(insertQuery, connection)
-              cmd.Parameters.AddWithValue("$streamName", streamName) |> ignore<SQLiteParameter>
-              cmd.Parameters.AddWithValue("$streamVersion", int64 i + currentStreamVersion + 1L) |> ignore<SQLiteParameter>
-              cmd.Parameters.AddWithValue("$deduplicationId", evt.Metadata.DeduplicationId) |> ignore<SQLiteParameter>
-              cmd.Parameters.AddWithValue("$eventType", evt.SerializedEventToRecord.TypeName) |> ignore<SQLiteParameter>
-              cmd.Parameters.AddWithValue("$headers", ([||] : byte[])) |> ignore<SQLiteParameter>
-              cmd.Parameters.AddWithValue("$payload", (evt.SerializedEventToRecord.Payload)) |> ignore<SQLiteParameter>
-              cmd.Parameters.AddWithValue("$eventStamp", evt.Metadata.EventStamp) |> ignore<SQLiteParameter>
-              cmd.Parameters.AddWithValue("$commitStamp", DateTime.UtcNow) |> ignore<SQLiteParameter>
+              let cmd = new SqliteCommand(insertQuery, connection)
+              cmd.Parameters.AddWithValue("$streamName", streamName) |> ignore<SqliteParameter>
+              cmd.Parameters.AddWithValue("$streamVersion", int64 i + currentStreamVersion + 1L) |> ignore<SqliteParameter>
+              cmd.Parameters.AddWithValue("$deduplicationId", evt.Metadata.DeduplicationId) |> ignore<SqliteParameter>
+              cmd.Parameters.AddWithValue("$eventType", evt.SerializedEventToRecord.TypeName) |> ignore<SqliteParameter>
+              cmd.Parameters.AddWithValue("$headers", ([||] : byte[])) |> ignore<SqliteParameter>
+              cmd.Parameters.AddWithValue("$payload", (evt.SerializedEventToRecord.Payload)) |> ignore<SqliteParameter>
+              cmd.Parameters.AddWithValue("$eventStamp", evt.Metadata.EventStamp) |> ignore<SqliteParameter>
+              cmd.Parameters.AddWithValue("$commitStamp", DateTime.UtcNow) |> ignore<SqliteParameter>
               cmd 
             )
             |> Seq.toArray
@@ -182,7 +182,7 @@ module SqliteStorage =
 
     let openConn() =
       async {
-      let connection = new SQLiteConnection(connectionString)
+      let connection = new SqliteConnection(connectionString)
       do! connection.OpenAsync() |> Async.AwaitTask
       return connection
       }
@@ -195,7 +195,7 @@ module SqliteStorage =
       reader.Dispose()
       }
 
-    let closeConn (conn:SQLiteConnection) =
+    let closeConn (conn:SqliteConnection) =
       async {
       conn.Close()
       conn.Dispose()
@@ -228,7 +228,7 @@ module SqliteStorage =
       let maxDelay = maxPollingDelay.TotalMilliseconds
 
       let getReader (start:int64) connection =
-        use cmd = new SQLiteCommand(getEventsQuery, connection)
+        use cmd = new SqliteCommand(getEventsQuery, connection)
         cmd.Parameters.AddWithValue("$commitVersion", start) |> ignore
         cmd.Parameters.AddWithValue("$limit", batchSize) |> ignore
         cmd.ExecuteReaderAsync() |> Async.AwaitTask      
@@ -245,7 +245,7 @@ module SqliteStorage =
 
     let getStreamEvents (streamName:string) (fromStreamVersion:int64) =
       let getReader (start:int64) connection =
-        use cmd = new SQLiteCommand(getStreamEventsQuery, connection)
+        use cmd = new SqliteCommand(getStreamEventsQuery, connection)
         cmd.Parameters.AddWithValue("$streamName", streamName) |> ignore
         cmd.Parameters.AddWithValue("$streamVersion", start) |> ignore
         cmd.Parameters.AddWithValue("$limit", batchSize) |> ignore
