@@ -76,8 +76,8 @@ type StreamManager<'event,'state>(streamFactory:IStreamFactory, eventProcessorFa
         let newStream = streamFactory.CreateStream<'event> name
         let! result = createdStream name
         match result with
-        | Choice1Of2 _ -> return! getEventProcessor name
-        | Choice2Of2 err -> return failwith <| sprintf "Unable to obtain event stream for %s" name
+        | Result.Ok _ -> return! getEventProcessor name
+        | Result.Error err -> return failwith <| sprintf "Unable to obtain event stream for %s" name
         }
       | Some eventProcessor -> async {return eventProcessor.Value}
     }

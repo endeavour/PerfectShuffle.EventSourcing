@@ -24,8 +24,8 @@ module Store =
   | NoItems
   | ConcurrencyCheckFailed
   | WriteException of exn
-
-  type WriteResult = Choice<WriteSuccess, WriteFailure>
+  
+  type WriteResult = Result<WriteSuccess, WriteFailure>
 
   type IAllEventReader =
     abstract member GetAllEvents : fromCommitVersion:int64 -> AsyncSeq<RawEvent>

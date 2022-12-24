@@ -15,12 +15,12 @@ type Batch<'event> =
 
 type private Msg<'event, 'state> =
 | ReadLatestFromStore
-| Persist of Batch<'event> * AsyncReplyChannel<Choice<AggregateState<'state>,PersistenceFailure>>
+| Persist of Batch<'event> * AsyncReplyChannel<Result<AggregateState<'state>,PersistenceFailure>>
 | ReadState of AsyncReplyChannel<AggregateState<'state>>
 | Exit
 
 type IEventProcessor<'event, 'state> =
-  abstract member Persist : Batch<'event> -> Async<Choice<AggregateState<'state>, PersistenceFailure>>
+  abstract member Persist : Batch<'event> -> Async<Result<AggregateState<'state>, PersistenceFailure>>
   abstract member ExtendedState : unit -> Async<AggregateState<'state>>
   abstract member State : unit -> Async<'state>
 
@@ -39,7 +39,7 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
   let agent =
     MailboxProcessor<_>.Start(fun inbox ->
       
-      let rec persistEvents (batch:Batch<_>) : Async<Choice<AggregateState<'state>, PersistenceFailure>>  =
+      let rec persistEvents (batch:Batch<_>) : Async<Result<AggregateState<'state>, PersistenceFailure>>  =
         async {
             // TODO: refactor this
             let concurrency =
@@ -49,7 +49,7 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
             let! r = stream.Save batch.Events concurrency
             
             match r with
-            | Choice1Of2 (StreamVersion n) ->
+            | Result.Ok (StreamVersion n) ->
               let! currentState = aggregate.CurrentStateAsync()
               let newEvents = stream.EventsFrom currentState.NextExpectedStreamVersion
               let! aggregateResult =
@@ -57,30 +57,30 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
                 |> AsyncSeq.fold (fun acc x -> aggregate.Apply x.RecordedEvent x.Metadata.StreamVersion :: acc) [] 
               let aggregateResults =
                 aggregateResult
-                |> Seq.fold (fun (acc:Choice<unit, exn list>) (x:Choice<unit, exn>) ->
+                |> Seq.fold (fun (acc:Result<unit, exn list>) (x:Result<unit, exn>) ->
                   match acc with
-                  | Choice1Of2 () ->
+                  | Result.Ok () ->
                     match x with
-                    | Choice1Of2 () -> Choice1Of2 ()
-                    | Choice2Of2 e -> Choice2Of2 [e]
-                  | Choice2Of2 es ->
+                    | Result.Ok () -> Result.Ok ()
+                    | Result.Error e -> Result.Error [e]
+                  | Result.Error es ->
                     match x with
-                    | Choice1Of2 () -> Choice2Of2 es
-                    | Choice2Of2 e -> Choice2Of2 (e::es)) (Choice1Of2 ())
+                    | Result.Ok () -> Result.Error es
+                    | Result.Error e -> Result.Error (e::es)) (Result.Ok ())
               
               match aggregateResults with
-              | Choice1Of2 (()) ->
+              | Result.Ok (()) ->
                 let! result = aggregate.CurrentStateAsync()
-                return Choice1Of2(result)
-              | Choice2Of2 es ->
+                return Result.Ok(result)
+              | Result.Error es ->
                 let aggregateException = System.AggregateException es
-                return Choice2Of2 (AggregateException aggregateException)
-            | Choice2Of2 reason ->
+                return Result.Error (AggregateException aggregateException)
+            | Result.Error reason ->
               match reason with
               | WriteFailure.ConcurrencyCheckFailed ->
                 inbox.Post ReadLatestFromStore
               | WriteFailure.NoItems | WriteFailure.WriteException _ -> ()
-              return Choice2Of2 (WriteFailure reason)
+              return Result.Error (WriteFailure reason)
         }
 
       let rec loop() =
@@ -103,8 +103,8 @@ type EventProcessor<'event, 'state> (aggregate:IAggregate<'state, 'event>, strea
             |> AsyncSeq.iter (fun item ->            
             printfn "Applying an item"
             match aggregate.Apply item.RecordedEvent item.Metadata.StreamVersion with
-            | Choice1Of2 _ -> printfn "Applied event %d" item.Metadata.StreamVersion
-            | Choice2Of2 e -> printfn "%A" e)  
+            | Result.Ok _ -> printfn "Applied event %d" item.Metadata.StreamVersion
+            | Result.Error e -> printfn "%A" e)  
           printfn "Up to date"
           return! loop()        
         | Exit -> ()        

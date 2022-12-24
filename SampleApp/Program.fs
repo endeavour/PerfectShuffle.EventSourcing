@@ -1,7 +1,6 @@
 ﻿namespace SampleApp
 open System
 open PerfectShuffle.EventSourcing
-open PerfectShuffle.EventSourcing.Store
 open FSharp.Control
 
 module Main =
@@ -36,7 +35,7 @@ module Main =
         | Some user ->
           async {
           printfn "User %s already exists, skipping..." email
-          return Choice1Of2 state
+          return Result.Ok state
           }
       }
 

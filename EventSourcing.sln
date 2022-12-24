@@ -13,6 +13,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcin
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffle.EventSourcing.Sqlite", "PerfectShuffle.EventSourcing.Sqlite\PerfectShuffle.EventSourcing.Sqlite.fsproj", "{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerfectShuffleEventSourcing.EventStore", "PerfectShuffleEventSourcing.EventStore\PerfectShuffleEventSourcing.EventStore.fsproj", "{5713F70F-DEA3-44AC-AAD0-7BCD37309F29}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B741A0D1-C5C4-45E1-9252-94DFE0F8E963}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5713F70F-DEA3-44AC-AAD0-7BCD37309F29}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5713F70F-DEA3-44AC-AAD0-7BCD37309F29}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5713F70F-DEA3-44AC-AAD0-7BCD37309F29}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5713F70F-DEA3-44AC-AAD0-7BCD37309F29}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

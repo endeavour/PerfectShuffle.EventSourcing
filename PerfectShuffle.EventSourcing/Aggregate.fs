@@ -7,14 +7,14 @@
   type AggregateState<'state> = {State:'state; NextExpectedStreamVersion : int64}
 
   type IAggregate<'state, 'event> =
-    abstract member Apply : event:'event -> streamVersion:int64 -> Choice<unit,exn>
+    abstract member Apply : event:'event -> streamVersion:int64 -> Result<unit,exn>
     abstract member CurrentState : unit -> AggregateState<'state>
     abstract member CurrentStateAsync : unit -> Async<AggregateState<'state>>
     abstract member Error : IEvent<Handler<exn>, exn>
     abstract member IsOrdered : bool
 
   type private aggregateMsg<'TExternalState, 'event> =
-    | Update of 'event * streamVersion:int64 * AsyncReplyChannel<Choice<unit,exn>>
+    | Update of 'event * streamVersion:int64 * AsyncReplyChannel<Result<unit,exn>>
     | CurrentState of AsyncReplyChannel<AggregateState<'TExternalState>>
 
   exception AggregateException of string
@@ -31,10 +31,10 @@
           | Update(event, streamVersion, replyChannel) ->
             if streamVersion <> nextExpectedStreamVersion
               then
-                replyChannel.Reply (Choice2Of2 <| AggregateException "Wrong stream version")
+                replyChannel.Reply (Result.Error <| AggregateException "Wrong stream version")
                 return! loop nextExpectedStreamVersion internalState
               else
-                replyChannel.Reply (Choice1Of2 ()) 
+                replyChannel.Reply (Result.Ok ()) 
                                 
                 let newState = apply internalState event
 
@@ -72,7 +72,7 @@
             match msg with
             | Update(event, streamVersion, replyChannel) ->
 
-                replyChannel.Reply (Choice1Of2 ()) 
+                replyChannel.Reply (Result.Ok ()) 
                 
                 let newState = apply internalState event
 

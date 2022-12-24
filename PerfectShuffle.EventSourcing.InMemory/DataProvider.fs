@@ -86,7 +86,7 @@ module InMemory =
               let updatedStream = rawEvents |> Seq.fold conj stream
               let newStreams =
                 streams.Add(streamName, updatedStream)
-              replyChannel.Reply (WriteResult.Choice1Of2(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
+              replyChannel.Reply (WriteResult.Ok(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
               for evt in rawEvents do
                 evtStream.Trigger evt
               return! loop newStreams updatedAllStream (commitVersion + int64 events.Length)
@@ -100,7 +100,7 @@ module InMemory =
 
                 let newStreams =
                   streams.Add(streamName, updatedStream)
-                replyChannel.Reply (WriteResult.Choice1Of2(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
+                replyChannel.Reply (WriteResult.Ok(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
                 for evt in rawEvents do
                   evtStream.Trigger evt
                 return! loop newStreams updatedAllStream (commitVersion + int64 events.Length)      
@@ -111,12 +111,12 @@ module InMemory =
 
                 let newStreams =
                   streams.Add(streamName, updatedStream)
-                replyChannel.Reply (WriteResult.Choice1Of2(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
+                replyChannel.Reply (WriteResult.Ok(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
                 for evt in rawEvents do
                   evtStream.Trigger evt
                 return! loop newStreams updatedAllStream (commitVersion + int64 events.Length)                      
               | _ ->
-                replyChannel.Reply (WriteResult.Choice2Of2(WriteFailure.ConcurrencyCheckFailed))
+                replyChannel.Reply (WriteResult.Error(WriteFailure.ConcurrencyCheckFailed))
                 return! loop streams allEvents commitVersion
             | WriteConcurrencyCheck.NoStream ->
               let stream = streams |> Map.tryFind streamName
@@ -128,12 +128,12 @@ module InMemory =
 
                 let newStreams =
                   streams.Add(streamName, updatedStream)
-                replyChannel.Reply (WriteResult.Choice1Of2(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
+                replyChannel.Reply (WriteResult.Ok(WriteSuccess.StreamVersion (int64 updatedStream.Length)))
                 for evt in rawEvents do
                   evtStream.Trigger evt
                 return! loop newStreams updatedAllStream (commitVersion + int64 events.Length)      
               | _ ->
-                replyChannel.Reply (WriteResult.Choice2Of2(WriteFailure.ConcurrencyCheckFailed))
+                replyChannel.Reply (WriteResult.Error(WriteFailure.ConcurrencyCheckFailed))
                 return! loop streams allEvents commitVersion
             | WriteConcurrencyCheck.EmptyStream -> failwith "assertion failed"
               

@@ -1,39 +1,42 @@
-// include Fake lib
-#r "packages/FAKE/tools/FakeLib.dll"
-open Fake
+#r "paket:
+nuget Fake.DotNet.Cli
+nuget Fake.IO.FileSystem
+nuget Fake.Core.Target //"
+#load ".fake/build.fsx/intellisense.fsx"
+open Fake.Core
+open Fake.DotNet
+open Fake.IO
+open Fake.IO.FileSystemOperators
+open Fake.IO.Globbing.Operators
+open Fake.Core.TargetOperators
 
-// Properties
-let buildDir = FileSystemHelper.currentDirectory @@ "/build"
-let outputDir = FileSystemHelper.currentDirectory @@ "/output"
+Target.initEnvironment ()
 
-// Targets
-Target "Clean" (fun _ ->
-  CleanDirs [buildDir; outputDir]
+Target.create "Clean" (fun _ ->
+    !! "src/**/bin"
+    ++ "src/**/obj"
+    |> Shell.cleanDirs 
 )
 
-Target "BuildApp" (fun _ ->
-  !! "**/*.fsproj"
-    |> MSBuildRelease buildDir "Build"
-    |> Log "AppBuild-Output: "
+Target.create "Build" (fun _ ->
+    !! "src/**/*.*proj"
+    |> Seq.iter (DotNet.build id)
 )
 
-Target "Pack" (fun _ ->
-  Paket.Pack (fun settings -> { settings with OutputPath = "./output"; MinimumFromLockFile=true})
-  )
+// Target.create "Pack" (fun _ ->
+//   Paket.Pack (fun settings -> { settings with OutputPath = "./output"; MinimumFromLockFile=true})
+//   )
+//
+// Target.create "Push" (fun _ ->
+//   Paket.Push (fun settings -> { settings with WorkingDir = "./output"; DegreeOfParallelism = 5; PublishUrl = "https://www.nuget.org/api/v2/package"})
+// )
 
-Target "Push" (fun _ ->
-  Paket.Push (fun settings -> { settings with WorkingDir = "./output"; DegreeOfParallelism = 5; PublishUrl = "https://www.nuget.org/api/v2/package"})
-)
+Target.create "All" ignore
 
-Target "Default" (fun _ ->
-  ()
-)
-
-// Dependencies
 "Clean"
-  ==> "BuildApp"
-  ==> "Pack"
-  ==> "Default"
+  ==> "Build"
+  // ==> "Pack"
+  // ==> "Push"
+  ==> "All"
 
-// start build
-RunTargetOrDefault "Default"
+Target.runOrDefault "Build"

@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net6.0</TargetFramework>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="DataProvider.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include=".dockerignore" />
+      <Content Include="Dockerfile" />
+      <Content Include="docker-compose.yml" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="EventStore.Client" Version="22.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj" />
+    </ItemGroup>
+
+</Project>

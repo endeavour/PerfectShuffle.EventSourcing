@@ -73,14 +73,14 @@ module SqlStorage =
         do! cmd.ExecuteNonQueryAsync() |> Async.AwaitTask |> Async.Ignore
 
         let endVersion = endVersionOutputParam.Value :?> int64
-        return WriteResult.Choice1Of2 (WriteSuccess.StreamVersion endVersion)
+        return WriteResult.Ok (WriteSuccess.StreamVersion endVersion)
       with e ->        
         let innerException = getInnerException e
         match innerException with
         | :? SqlException as e when e.Number = 53001 ->
-          return WriteResult.Choice2Of2 (WriteFailure.ConcurrencyCheckFailed)
+          return WriteResult.Error (WriteFailure.ConcurrencyCheckFailed)
         | e -> 
-          return WriteResult.Choice2Of2 (WriteFailure.WriteException e)
+          return WriteResult.Error (WriteFailure.WriteException e)
     }
 
     let readBatched

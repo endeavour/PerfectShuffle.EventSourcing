@@ -1,5 +1,7 @@
 ﻿namespace SampleApp
 
+open EventStore.ClientAPI
+
 module MySampleApp =
 
   open PerfectShuffle.EventSourcing
@@ -40,8 +42,11 @@ module MySampleApp =
 
   exception EventProcessorException of exn
 
-  let dataProvider = new PerfectShuffle.EventSourcing.InMemory.InMemory.InMemoryDataProvider()
+  // let dataProvider = new PerfectShuffle.EventSourcing.InMemory.InMemory.InMemoryDataProvider()
   // let dataProvider = new PerfectShuffle.EventSourcing.SqlStorage.SqlStorage.SqlDataProvider("""CONNECTION_STRING""", System.TimeSpan.FromSeconds(5.0))
+  let dataProvider =
+    let connection = EventStoreConnection.Create(System.Uri("tcp://admin:changeit@localhost:1113"))
+    PerfectShuffle.EventSourcing.EventStore.EventStoreStorage.EventStoreDataProvider(connection)
 
   let onError = fun exn -> printfn "%A" exn
 

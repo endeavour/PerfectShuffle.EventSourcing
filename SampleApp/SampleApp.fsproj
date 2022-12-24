@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PerfectShuffle.EventSourcing.InMemory\PerfectShuffle.EventSourcing.InMemory.fsproj" />
     <ProjectReference Include="..\PerfectShuffle.EventSourcing\PerfectShuffle.EventSourcing.fsproj" />
+    <ProjectReference Include="..\PerfectShuffleEventSourcing.EventStore\PerfectShuffleEventSourcing.EventStore.fsproj" />
   </ItemGroup>
 
 </Project>

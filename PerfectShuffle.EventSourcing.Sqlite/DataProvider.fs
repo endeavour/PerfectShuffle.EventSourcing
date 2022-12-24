@@ -104,10 +104,10 @@ module SqliteStorage =
 
         match concurrencyCheck with
         | WriteConcurrencyCheck.NewEventNumber n when n <> currentStreamVersion ->
-          return WriteResult.Choice2Of2 (WriteFailure.ConcurrencyCheckFailed)
+          return WriteResult.Error (WriteFailure.ConcurrencyCheckFailed)
         | WriteConcurrencyCheck.EmptyStream
         | WriteConcurrencyCheck.NoStream when currentStreamVersion <> 0L ->
-          return WriteResult.Choice2Of2 (WriteFailure.ConcurrencyCheckFailed)
+          return WriteResult.Error (WriteFailure.ConcurrencyCheckFailed)
         | _ ->
           
           let cmds =
@@ -130,9 +130,9 @@ module SqliteStorage =
             do! cmd.ExecuteNonQueryAsync() |> Async.AwaitTask |> Async.Ignore
 
           let endVersion = currentStreamVersion + int64 evts.Length
-          return WriteResult.Choice1Of2 (WriteSuccess.StreamVersion (int64 endVersion))
+          return WriteResult.Ok (WriteSuccess.StreamVersion (int64 endVersion))
       with e ->        
-        return WriteResult.Choice2Of2 (WriteFailure.WriteException e)
+        return WriteResult.Error (WriteFailure.WriteException e)
     }
 
     let readBatched
