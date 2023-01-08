@@ -1,5 +1,6 @@
 ﻿namespace PerfectShuffle.EventSourcing.EventStore
 
+open System.Text.Json
 open EventStore.ClientAPI.Exceptions
 open PerfectShuffle.EventSourcing
 open PerfectShuffle.EventSourcing.Store
@@ -34,23 +35,25 @@ module EventStoreStorage =
           }
         
         events fromCommitVersion
-        |> AsyncSeq.map (fun resolvedEvent ->
+        |> AsyncSeq.mapi (fun i resolvedEvent ->
+           
+          let deserializedMetadata = JsonSerializer.Deserialize<EventToRecordMetadata> resolvedEvent.Event.Metadata
            
           let metadata : RecordedMetadata =
             {
             TypeName = resolvedEvent.Event.EventType     
-            CommitVersion = resolvedEvent.
-            StreamName = string
-            StreamVersion =
-            DeduplicationId = 
-            EventStamp =
-            CommitStamp =              
+            CommitVersion = resolvedEvent.Event.EventNumber //todo: is this right
+            StreamName = resolvedEvent.Event.EventStreamId  //todo: is this right? does it resolve to $all or the invididual stream or what?
+            StreamVersion = resolvedEvent.Event.EventNumber //todo: is this right
+            DeduplicationId = resolvedEvent.Event.EventId
+            EventStamp = deserializedMetadata.EventStamp
+            CommitStamp = resolvedEvent.Event.Created              
             }
-          let r : RawEvent =
-            {
-              Payload = resolvedEvent.Event.Data
-              Metadata = metadata
-            }
+            
+          {
+            Payload = resolvedEvent.Event.Data
+            Metadata = metadata
+          }
           )
           
 
@@ -67,19 +70,19 @@ module EventStoreStorage =
             
             let isJson = true
             let data = evt.SerializedEventToRecord.Payload
-            let metadata = [||]
+            let metadata = evt.Metadata |> JsonSerializer.Serialize |> Encoding.UTF8.GetBytes
             EventData(evt.Metadata.DeduplicationId, evt.SerializedEventToRecord.TypeName, isJson, data, metadata)
             )
         
         let expectedVersion =
           match concurrencyCheck with
-          /// This disables the optimistic concurrency check.
+          // This disables the optimistic concurrency check.
           | Any -> int64 ExpectedVersion.Any
-          /// this specifies the expectation that target stream does not yet exist.
+          // this specifies the expectation that target stream does not yet exist.
           | NoStream -> int64 ExpectedVersion.NoStream
-          /// this specifies the expectation that the target stream has been explicitly created, but does not yet have any user events written in it.
+          // this specifies the expectation that the target stream has been explicitly created, but does not yet have any user events written in it.
           | EmptyStream _ -> int64 ExpectedVersion.EmptyStream
-          /// Any other integer value	The event number that you expect the stream to currently be at.
+          // Any other integer value	The event number that you expect the stream to currently be at.
           | NewEventNumber n -> n
 
         
